@@ -5,10 +5,12 @@
 package com.example.controlegastos.ui.despesa
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,25 +19,28 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,13 +52,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.vectorResource
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.controlegastos.R
+import com.example.controlegastos.domain.model.TipoLancamento
 import kotlinx.coroutines.flow.collectLatest
 import java.time.Instant
 import java.time.LocalDate
@@ -87,13 +95,16 @@ fun InserirDespesaScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            CenterAlignedTopAppBar(
                 title = {
                     Text(text = "Nova despesa")
                 },
                 navigationIcon = {
-                    TextButton(onClick = onVoltar) {
-                        Text(text = "Voltar")
+                    IconButton(onClick = onVoltar) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Voltar"
+                        )
                     }
                 }
             )
@@ -108,8 +119,9 @@ fun InserirDespesaScreen(
             onValorAlterado = viewModel::atualizarValor,
             onDescricaoAlterada = viewModel::atualizarDescricao,
             onCategoriaSelecionada = viewModel::selecionarCategoria,
-            onDataSelecionada = viewModel::atualizarDataVencimento,
-            onParcelamentoAlterado = viewModel::alterarParcelamento,
+            onCartaoSelecionado = viewModel::selecionarCartao,
+            onDataSelecionada = viewModel::atualizarDataCompra,
+            onTipoLancamentoAlterado = viewModel::alterarTipoLancamento,
             onQuantidadeParcelasAlterada = viewModel::atualizarQuantidadeParcelas,
             onSalvar = viewModel::salvarDespesa,
             modifier = Modifier.padding(innerPadding)
@@ -124,8 +136,9 @@ private fun FormularioDespesa(
     onValorAlterado: (String) -> Unit,
     onDescricaoAlterada: (String) -> Unit,
     onCategoriaSelecionada: (Int) -> Unit,
+    onCartaoSelecionado: (Int?) -> Unit,
     onDataSelecionada: (LocalDate) -> Unit,
-    onParcelamentoAlterado: (Boolean) -> Unit,
+    onTipoLancamentoAlterado: (TipoLancamento) -> Unit,
     onQuantidadeParcelasAlterada: (String) -> Unit,
     onSalvar: () -> Unit,
     modifier: Modifier = Modifier
@@ -143,20 +156,28 @@ private fun FormularioDespesa(
         }
 
         item {
+            val valorFormatado = uiState.valorTexto.formatarMoedaComCursor()
             OutlinedTextField(
-                value = uiState.valorTexto.formatarCentavos(),
-                onValueChange = onValorAlterado,
+                value = TextFieldValue(
+                    text = valorFormatado,
+                    selection = TextRange(valorFormatado.length)
+                ),
+                onValueChange = { novoValor ->
+                    onValorAlterado(
+                        novoValor.text.filter(Char::isDigit)
+                    )
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester),
                 label = {
                     Text(text = "Valor")
                 },
-                prefix = {
-                    Text(text = "R$ ")
-                },
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Number
+                ),
+                textStyle = LocalTextStyle.current.copy(
+                    textAlign = TextAlign.Start
                 ),
                 singleLine = true
             )
@@ -185,8 +206,15 @@ private fun FormularioDespesa(
         }
 
         item {
-            SeletorDataVencimento(
-                dataSelecionada = uiState.dataVencimento,
+            SeletorCartao(
+                uiState = uiState,
+                onCartaoSelecionado = onCartaoSelecionado
+            )
+        }
+
+        item {
+            SeletorDataCompra(
+                dataSelecionada = uiState.dataCompra,
                 onDataSelecionada = onDataSelecionada
             )
         }
@@ -196,49 +224,23 @@ private fun FormularioDespesa(
         }
 
         item {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Parcelamento",
-                    style = MaterialTheme.typography.titleMedium
-                )
+            TipoLancamentoSelector(
+                tipoSelecionado = uiState.tipoLancamento,
+                onTipoSelecionado = onTipoLancamentoAlterado
+            )
+        }
 
-                Column(
+        if (uiState.tipoLancamento == TipoLancamento.PARCELADA) {
+            item {
+                OutlinedTextField(
+                    value = uiState.quantidadeParcelas.toString(),
+                    onValueChange = onQuantidadeParcelasAlterada,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Text(
-                        text = if (uiState.parcelado) {
-                            "Compra parcelada"
-                        } else {
-                            "Despesa única"
-                        }
-                    )
-
-                    Switch(
-                        checked = uiState.parcelado,
-                        onCheckedChange = onParcelamentoAlterado
-                    )
-                }
-
-                if (uiState.parcelado) {
-                    OutlinedTextField(
-                        value = uiState.quantidadeParcelas.toString(),
-                        onValueChange = onQuantidadeParcelasAlterada,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = {
-                            Text(text = "Quantidade de parcelas")
-                        },
-                        suffix = {
-                            Text(text = "x")
-                        },
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number
-                        ),
-                        singleLine = true
-                    )
-                }
+                    label = { Text("Quantidade de parcelas") },
+                    suffix = { Text("x") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
             }
         }
 
@@ -257,7 +259,7 @@ private fun FormularioDespesa(
                     )
                 } else {
                     Text(
-                        text = if (uiState.parcelado) {
+                        text = if (uiState.tipoLancamento == TipoLancamento.PARCELADA) {
                             "Salvar compra parcelada"
                         } else {
                             "Salvar despesa"
@@ -328,7 +330,100 @@ private fun SeletorCategoria(
 }
 
 @Composable
-private fun SeletorDataVencimento(
+private fun SeletorCartao(
+    uiState: InserirDespesaUiState,
+    onCartaoSelecionado: (Int?) -> Unit
+) {
+    var aberto by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = aberto,
+        onExpandedChange = { aberto = !aberto }
+    ) {
+        OutlinedTextField(
+            value = uiState.cartaoSelecionado?.nome ?: "Sem cartão",
+            onValueChange = {},
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(),
+            readOnly = true,
+            label = { Text("Cartão opcional") },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = aberto)
+            },
+            supportingText = {
+                uiState.cartaoSelecionado?.let { cartao ->
+                    Text(
+                        "Fecha dia ${cartao.diaFechamento} • " +
+                                "vence dia ${cartao.diaVencimento}"
+                    )
+                }
+            }
+        )
+
+        ExposedDropdownMenu(
+            expanded = aberto,
+            onDismissRequest = { aberto = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Sem cartão") },
+                onClick = {
+                    onCartaoSelecionado(null)
+                    aberto = false
+                }
+            )
+            uiState.cartoes.forEach { cartao ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            "${cartao.nome} • vence dia ${cartao.diaVencimento}"
+                        )
+                    },
+                    onClick = {
+                        onCartaoSelecionado(cartao.id)
+                        aberto = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TipoLancamentoSelector(
+    tipoSelecionado: TipoLancamento,
+    onTipoSelecionado: (TipoLancamento) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Tipo de lançamento",
+            style = MaterialTheme.typography.titleMedium
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TipoLancamento.entries.forEach { tipo ->
+                FilterChip(
+                    selected = tipo == tipoSelecionado,
+                    onClick = { onTipoSelecionado(tipo) },
+                    label = {
+                        Text(
+                            when (tipo) {
+                                TipoLancamento.UNICA -> "Única"
+                                TipoLancamento.PARCELADA -> "Parcelada"
+                                TipoLancamento.FIXA -> "Fixa"
+                            }
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SeletorDataCompra(
     dataSelecionada: LocalDate,
     onDataSelecionada: (LocalDate) -> Unit
 ) {
@@ -343,20 +438,34 @@ private fun SeletorDataVencimento(
         )
     }
 
-    OutlinedTextField(
-        value = dataFormatada,
-        onValueChange = {},
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
                 mostrarCalendario = true
+            }
+    ) {
+        OutlinedTextField(
+            value = dataFormatada,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth(),
+            label = {
+                Text(text = "Data da compra")
             },
-        label = {
-            Text(text = "Data de vencimento")
-        },
-        readOnly = true,
-        singleLine = true
-    )
+            readOnly = true,
+            enabled = false,
+            colors = OutlinedTextFieldDefaults.colors(
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                disabledBorderColor = MaterialTheme.colorScheme.outline,
+                disabledContainerColor = Color.Transparent
+            ),
+            singleLine = true
+        )
+    }
 
     if (mostrarCalendario) {
         val datePickerState = rememberDatePickerState(
@@ -374,14 +483,12 @@ private fun SeletorDataVencimento(
                 Button(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            val data = Instant
+                            val novaData = Instant
                                 .ofEpochMilli(millis)
                                 .atZone(ZoneOffset.UTC)
                                 .toLocalDate()
-
-                            onDataSelecionada(data)
+                            onDataSelecionada(novaData)
                         }
-
                         mostrarCalendario = false
                     }
                 ) {
@@ -389,7 +496,7 @@ private fun SeletorDataVencimento(
                 }
             },
             dismissButton = {
-                Button(
+                TextButton(
                     onClick = {
                         mostrarCalendario = false
                     }
@@ -403,13 +510,11 @@ private fun SeletorDataVencimento(
     }
 }
 
-private fun String.formatarCentavos(): String {
-    if (isBlank()) return ""
-
-    val valor = toLongOrNull() ?: return ""
-
-    return "%d,%02d".format(
-        valor / 100,
-        valor % 100
+private fun String.formatarMoedaComCursor(): String {
+    if (isBlank()) return "R$"
+    val valorCentavos = toLongOrNull() ?: 0L
+    return "R$ %d,%02d".format(
+        valorCentavos / 100,
+        valorCentavos % 100
     )
 }

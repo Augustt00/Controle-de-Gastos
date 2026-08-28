@@ -67,7 +67,7 @@ class GastosViewModel @Inject constructor(
                 .firstOrNull { it.mesAno == mesAno }
                 ?.totalCentavos
                 ?: 0L,
-            despesasDoMes = despesas.sortedByDescending { it.dataVencimento }
+            despesasDoMes = despesas.sortedByDescending { it.dataCompra }
         )
     }.stateIn(
         scope = viewModelScope,

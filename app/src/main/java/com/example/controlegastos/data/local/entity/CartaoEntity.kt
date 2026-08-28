@@ -10,18 +10,11 @@ import androidx.room.PrimaryKey
     indices = [Index(value = ["marca_chave"], unique = true)]
 )
 data class CartaoEntity(
-    @PrimaryKey(autoGenerate = true)
-    val id: Int = 0,
-
-    @ColumnInfo(name = "nome")
-    val nome: String,
-
-    @ColumnInfo(name = "marca_chave")
-    val marcaChave: String,
-
-    @ColumnInfo(name = "cor_hex")
-    val corHex: String,
-
-    @ColumnInfo(name = "ativo")
-    val ativo: Boolean = true
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @ColumnInfo(name = "nome") val nome: String,
+    @ColumnInfo(name = "marca_chave") val marcaChave: String,
+    @ColumnInfo(name = "cor_hex") val corHex: String,
+    @ColumnInfo(name = "ativo") val ativo: Boolean = true,
+    @ColumnInfo(name = "dia_fechamento") val diaFechamento: Int = 29,
+    @ColumnInfo(name = "dia_vencimento") val diaVencimento: Int = 5
 )

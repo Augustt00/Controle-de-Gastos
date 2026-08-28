@@ -34,11 +34,13 @@ interface DespesaDao {
             d.id AS despesa_id,
             d.valor AS despesa_valor,
             d.descricao AS despesa_descricao,
+            d.data_compra AS despesa_data_compra,
             d.data_vencimento AS despesa_data_vencimento,
             d.data_pagamento AS despesa_data_pagamento,
             d.status_pago AS despesa_status_pago,
             d.categoria_id AS despesa_categoria_id,
             d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+            d.cartao_id AS despesa_cartao_id,
 
             c.id AS categoria_id,
             c.nome AS categoria_nome,
@@ -49,7 +51,7 @@ interface DespesaDao {
 
         FROM tb_despesas d
         INNER JOIN tb_categorias c ON c.id = d.categoria_id
-        WHERE d.data_vencimento >= (
+        WHERE d.data_compra >= (
             CAST(
                 strftime(
                     '%s',
@@ -57,7 +59,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
-        AND d.data_vencimento < (
+        AND d.data_compra < (
             CAST(
                 strftime(
                     '%s',
@@ -66,7 +68,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
-        ORDER BY d.data_vencimento ASC
+        ORDER BY d.data_compra ASC
         """
     )
     fun getDespesasPorMesAno(
@@ -85,7 +87,7 @@ interface DespesaDao {
 
         FROM tb_despesas d
         INNER JOIN tb_categorias c ON c.id = d.categoria_id
-        WHERE d.data_vencimento >= (
+        WHERE d.data_compra >= (
             CAST(
                 strftime(
                     '%s',
@@ -93,7 +95,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
-        AND d.data_vencimento < (
+        AND d.data_compra < (
             CAST(
                 strftime(
                     '%s',
@@ -115,7 +117,7 @@ interface DespesaDao {
         """
         SELECT COALESCE(SUM(valor), 0)
         FROM tb_despesas
-        WHERE data_vencimento >= (
+        WHERE data_compra >= (
             CAST(
                 strftime(
                     '%s',
@@ -123,7 +125,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
-        AND data_vencimento < (
+        AND data_compra < (
             CAST(
                 strftime(
                     '%s',
@@ -144,7 +146,7 @@ interface DespesaDao {
         SELECT COALESCE(SUM(valor), 0)
         FROM tb_despesas
         WHERE status_pago = 1
-        AND data_vencimento >= (
+        AND data_compra >= (
             CAST(
                 strftime(
                     '%s',
@@ -152,7 +154,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
-        AND data_vencimento < (
+        AND data_compra < (
             CAST(
                 strftime(
                     '%s',
@@ -173,7 +175,7 @@ interface DespesaDao {
         SELECT COALESCE(SUM(valor), 0)
         FROM tb_despesas
         WHERE status_pago = 0
-        AND data_vencimento >= (
+        AND data_compra >= (
             CAST(
                 strftime(
                     '%s',
@@ -181,7 +183,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
-        AND data_vencimento < (
+        AND data_compra < (
             CAST(
                 strftime(
                     '%s',
@@ -256,11 +258,13 @@ interface DespesaDao {
         d.id AS despesa_id,
         d.valor AS despesa_valor,
         d.descricao AS despesa_descricao,
+        d.data_compra AS despesa_data_compra,
         d.data_vencimento AS despesa_data_vencimento,
         d.data_pagamento AS despesa_data_pagamento,
         d.status_pago AS despesa_status_pago,
         d.categoria_id AS despesa_categoria_id,
         d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+        d.cartao_id AS despesa_cartao_id,
 
         c.id AS categoria_id,
         c.nome AS categoria_nome,
@@ -280,6 +284,39 @@ interface DespesaDao {
     fun observarPendenciasDetalhadas(
         dataInicio: Long,
         dataFim: Long
+    ): Flow<List<DespesaComCategoria>>
+
+    @Query(
+        """
+    SELECT
+        d.id AS despesa_id,
+        d.valor AS despesa_valor,
+        d.descricao AS despesa_descricao,
+        d.data_compra AS despesa_data_compra,
+        d.data_vencimento AS despesa_data_vencimento,
+        d.data_pagamento AS despesa_data_pagamento,
+        d.status_pago AS despesa_status_pago,
+        d.categoria_id AS despesa_categoria_id,
+        d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+        d.cartao_id AS despesa_cartao_id,
+
+        c.id AS categoria_id,
+        c.nome AS categoria_nome,
+        c.cor_hex AS categoria_cor_hex,
+        c.teto_mensal AS categoria_teto_mensal,
+        c.icone_chave AS categoria_icone_chave,
+        c.ativa AS categoria_ativa
+
+    FROM tb_despesas d
+    INNER JOIN tb_categorias c ON c.id = d.categoria_id
+    WHERE d.data_compra >= :inicio
+      AND d.data_compra < :fim
+    ORDER BY d.data_compra ASC
+    """
+    )
+    fun observarDetalhadasEntre(
+        inicio: LocalDate,
+        fim: LocalDate
     ): Flow<List<DespesaComCategoria>>
 
     @Query(

@@ -12,7 +12,9 @@ data class InstituicaoPredefinida(
     val nome: String,
     val chave: String,
     val sigla: String,
-    val cor: Color
+    val cor: Color,
+    val diaFechamentoPadrao: Int,
+    val diaVencimentoPadrao: Int
 )
 
 val categoriasSugeridas = listOf(
@@ -35,12 +37,12 @@ val categoriasSugeridas = listOf(
 )
 
 val instituicoesPredefinidas = listOf(
-    InstituicaoPredefinida("Nubank", "nubank", "Nu", Color(0xFF820AD1)),
-    InstituicaoPredefinida("C6 Bank", "c6", "C6", Color(0xFF1E1E1E)),
-    InstituicaoPredefinida("Itaú", "itau", "IT", Color(0xFFEC7000)),
-    InstituicaoPredefinida("Bradesco", "bradesco", "B", Color(0xFFCC092F)),
-    InstituicaoPredefinida("PicPay", "picpay", "P", Color(0xFF21C25E)),
-    InstituicaoPredefinida("Mercado Pago", "mercado_pago", "MP", Color(0xFF009EE3)),
-    InstituicaoPredefinida("Caixa Tem", "caixa_tem", "CX", Color(0xFF005CA9)),
-    InstituicaoPredefinida("Santander", "santander", "S", Color(0xFFEC0000))
+    InstituicaoPredefinida("Nubank", "nubank", "Nu", Color(0xFF820AD1), 29, 5),
+    InstituicaoPredefinida("C6 Bank", "c6", "C6", Color(0xFF1E1E1E), 29, 5),
+    InstituicaoPredefinida("Itaú", "itau", "IT", Color(0xFFEC7000), 29, 5),
+    InstituicaoPredefinida("Bradesco", "bradesco", "B", Color(0xFFCC092F), 22, 5),
+    InstituicaoPredefinida("PicPay", "picpay", "P", Color(0xFF21C25E), 27, 5),
+    InstituicaoPredefinida("Mercado Pago", "mercado_pago", "MP", Color(0xFF009EE3), 29, 4),
+    InstituicaoPredefinida("Caixa Tem", "caixa_tem", "CX", Color(0xFF005CA9), 29, 5),
+    InstituicaoPredefinida("Santander", "santander", "S", Color(0xFFEC0000), 29, 5)
 )

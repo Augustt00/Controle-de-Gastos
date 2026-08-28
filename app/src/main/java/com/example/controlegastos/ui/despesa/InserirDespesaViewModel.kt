@@ -3,13 +3,15 @@ package com.example.controlegastos.ui.despesa
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.controlegastos.domain.model.NovaDespesaParcelada
+import com.example.controlegastos.domain.model.TipoLancamento
+import com.example.controlegastos.domain.repository.CartaoRepository
 import com.example.controlegastos.domain.usecase.BuscarCategoriasUseCase
+import com.example.controlegastos.domain.usecase.CalcularVencimentoCartaoUseCase
 import com.example.controlegastos.domain.usecase.CriarDespesaParceladaUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -20,23 +22,27 @@ import javax.inject.Inject
 @HiltViewModel
 class InserirDespesaViewModel @Inject constructor(
     buscarCategoriasUseCase: BuscarCategoriasUseCase,
-    private val criarDespesaParceladaUseCase: CriarDespesaParceladaUseCase
+    private val criarDespesaParceladaUseCase: CriarDespesaParceladaUseCase,
+    private val cartaoRepository: CartaoRepository,
+    private val calcularVencimentoCartao: CalcularVencimentoCartaoUseCase
 ) : ViewModel() {
 
     private val formulario = MutableStateFlow(InserirDespesaUiState())
 
     val uiState: StateFlow<InserirDespesaUiState> = combine(
         formulario,
-        buscarCategoriasUseCase(somenteAtivas = true)
-    ) { estadoFormulario, categorias ->
+        buscarCategoriasUseCase(somenteAtivas = true),
+        cartaoRepository.observarAtivos()
+    ) { estadoFormulario, categorias, cartoes ->
         estadoFormulario.copy(
             categorias = categorias,
+            cartoes = cartoes,
             carregandoCategorias = false,
+            carregandoCartoes = false,
             categoriaSelecionada = estadoFormulario.categoriaSelecionada
-                ?.let { selecionada ->
-                    categorias.find { it.id == selecionada.id }
-                }
-                ?: estadoFormulario.categoriaSelecionada
+                ?.let { selecionada -> categorias.find { it.id == selecionada.id } },
+            cartaoSelecionado = estadoFormulario.cartaoSelecionado
+                ?.let { selecionado -> cartoes.find { it.id == selecionado.id } }
         )
     }.stateIn(
         scope = viewModelScope,
@@ -71,21 +77,30 @@ class InserirDespesaViewModel @Inject constructor(
         )
     }
 
-    fun atualizarDataVencimento(data: LocalDate) {
+    fun selecionarCartao(cartaoId: Int?) {
+        val cartao = uiState.value.cartoes.firstOrNull { it.id == cartaoId }
         formulario.value = formulario.value.copy(
-            dataVencimento = data,
+            cartaoSelecionado = cartao,
             mensagemErro = null
         )
     }
 
-    fun alterarParcelamento(parcelado: Boolean) {
+    fun alterarTipoLancamento(tipo: TipoLancamento) {
         formulario.value = formulario.value.copy(
-            parcelado = parcelado,
-            quantidadeParcelas = if (parcelado) {
+            tipoLancamento = tipo,
+            quantidadeParcelas = if (tipo == TipoLancamento.PARCELADA) {
                 formulario.value.quantidadeParcelas.coerceAtLeast(2)
             } else {
                 1
-            }
+            },
+            mensagemErro = null
+        )
+    }
+
+    fun atualizarDataCompra(data: LocalDate) {
+        formulario.value = formulario.value.copy(
+            dataCompra = data,
+            mensagemErro = null
         )
     }
 
@@ -105,7 +120,6 @@ class InserirDespesaViewModel @Inject constructor(
     fun salvarDespesa() {
         val estadoAtual = formulario.value
         val categoria = estadoAtual.categoriaSelecionada
-
         if (categoria == null) {
             formulario.value = estadoAtual.copy(
                 mensagemErro = "Selecione uma categoria."
@@ -114,12 +128,22 @@ class InserirDespesaViewModel @Inject constructor(
         }
 
         val valorCentavos = estadoAtual.valorTexto.toLongOrNull()
-
         if (valorCentavos == null || valorCentavos <= 0L) {
             formulario.value = estadoAtual.copy(
                 mensagemErro = "Informe um valor válido."
             )
             return
+        }
+
+        val cartao = estadoAtual.cartaoSelecionado
+        val dataPrimeiroVencimento = if (cartao != null) {
+            calcularVencimentoCartao(
+                dataCompra = estadoAtual.dataCompra,
+                diaFechamento = cartao.diaFechamento,
+                diaVencimento = cartao.diaVencimento
+            )
+        } else {
+            estadoAtual.dataCompra
         }
 
         viewModelScope.launch {
@@ -128,27 +152,28 @@ class InserirDespesaViewModel @Inject constructor(
                 mensagemErro = null,
                 despesaSalvaComSucesso = false
             )
-
             try {
                 criarDespesaParceladaUseCase(
                     NovaDespesaParcelada(
                         descricao = estadoAtual.descricao,
                         valorTotalCentavos = valorCentavos,
-                        quantidadeParcelas = if (estadoAtual.parcelado) {
+                        quantidadeParcelas = if (estadoAtual.tipoLancamento == TipoLancamento.PARCELADA) {
                             estadoAtual.quantidadeParcelas
-                        } else {
-                            1
-                        },
-                        dataPrimeiroVencimento = estadoAtual.dataVencimento
+                        } else 1,
+                        dataCompra = estadoAtual.dataCompra
                             .atStartOfDay(ZoneOffset.UTC)
                             .toInstant()
                             .toEpochMilli(),
-                        categoriaId = categoria.id
+                        dataPrimeiroVencimento = dataPrimeiroVencimento
+                            .atStartOfDay(ZoneOffset.UTC)
+                            .toInstant()
+                            .toEpochMilli(),
+                        categoriaId = categoria.id,
+                        cartaoId = cartao?.id
                     )
                 )
-
                 formulario.value = InserirDespesaUiState(
-                    dataVencimento = estadoAtual.dataVencimento,
+                    dataCompra = estadoAtual.dataCompra,
                     despesaSalvaComSucesso = true
                 )
             } catch (erro: IllegalArgumentException) {

@@ -340,7 +340,7 @@ private fun ItemGastoDetalhado(despesa: DespesaDetalhada) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = despesa.dataVencimento.formatarDiaMes(),
+                text = despesa.dataCompra.formatarDiaMes(),
                 modifier = Modifier.width(52.dp),
                 color = CorTextoGastos,
                 style = MaterialTheme.typography.labelLarge,

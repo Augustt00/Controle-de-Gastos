@@ -19,7 +19,7 @@ data class BackupDatabaseDTO(
     val contasSaldo: List<ContaSaldoBackupDTO> = emptyList()
 ) {
     companion object {
-        const val VERSAO_ATUAL = 2
+        const val VERSAO_ATUAL = 3
     }
 }
 
@@ -46,11 +46,13 @@ data class DespesaBackupDTO(
     val id: Int,
     val valor: Long,
     val descricao: String,
+    val dataCompra: String? = null,
     val dataVencimento: String,
     val dataPagamento: String?,
     val statusPago: Boolean,
     val categoriaId: Int,
-    val grupoParcelamentoId: Int?
+    val grupoParcelamentoId: Int?,
+    val cartaoId: Int? = null
 )
 
 @Serializable
@@ -59,7 +61,9 @@ data class CartaoBackupDTO(
     val nome: String,
     val marcaChave: String,
     val corHex: String,
-    val ativo: Boolean
+    val ativo: Boolean,
+    val diaFechamento: Int = 29,
+    val diaVencimento: Int = 5
 )
 
 @Serializable
@@ -96,11 +100,13 @@ fun DespesaEntity.toBackupDTO(): DespesaBackupDTO {
         id = id,
         valor = valor,
         descricao = descricao,
+        dataCompra = dataCompra.toString(),
         dataVencimento = dataVencimento.toString(),
         dataPagamento = dataPagamento?.toString(),
         statusPago = statusPago,
         categoriaId = categoriaId,
-        grupoParcelamentoId = grupoParcelamentoId
+        grupoParcelamentoId = grupoParcelamentoId,
+        cartaoId = cartaoId
     )
 }
 
@@ -127,11 +133,14 @@ fun DespesaBackupDTO.toEntity(): DespesaEntity {
         id = id,
         valor = valor,
         descricao = descricao,
+        dataCompra = dataCompra?.let(LocalDate::parse)
+            ?: LocalDate.parse(dataVencimento),
         dataVencimento = LocalDate.parse(dataVencimento),
         dataPagamento = dataPagamento?.let(LocalDate::parse),
         statusPago = statusPago,
         categoriaId = categoriaId,
-        grupoParcelamentoId = grupoParcelamentoId
+        grupoParcelamentoId = grupoParcelamentoId,
+        cartaoId = cartaoId
     )
 }
 
@@ -140,7 +149,9 @@ fun CartaoEntity.toBackupDTO() = CartaoBackupDTO(
     nome = nome,
     marcaChave = marcaChave,
     corHex = corHex,
-    ativo = ativo
+    ativo = ativo,
+    diaFechamento = diaFechamento,
+    diaVencimento = diaVencimento
 )
 
 fun CartaoBackupDTO.toEntity() = CartaoEntity(
@@ -148,7 +159,9 @@ fun CartaoBackupDTO.toEntity() = CartaoEntity(
     nome = nome,
     marcaChave = marcaChave,
     corHex = corHex,
-    ativo = ativo
+    ativo = ativo,
+    diaFechamento = diaFechamento,
+    diaVencimento = diaVencimento
 )
 
 fun ContaSaldoEntity.toBackupDTO() = ContaSaldoBackupDTO(

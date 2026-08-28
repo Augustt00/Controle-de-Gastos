@@ -128,7 +128,9 @@ class EdicaoViewModel @Inject constructor(
                         nome = instituicao.nome,
                         marcaChave = instituicao.chave,
                         corHex = instituicao.cor.toHex(),
-                        ativo = ativo
+                        ativo = ativo,
+                        diaFechamento = instituicao.diaFechamentoPadrao,
+                        diaVencimento = instituicao.diaVencimentoPadrao
                     )
                 )
             } else {
@@ -195,6 +197,62 @@ class EdicaoViewModel @Inject constructor(
     fun alterarAtivacaoConta(conta: ContaSaldo, ativo: Boolean) {
         viewModelScope.launch {
             contaSaldoRepository.atualizarAtivacao(conta.id, ativo)
+        }
+    }
+
+    fun editarConfiguracaoCartao(cartao: Cartao) {
+        formulario.value = formulario.value.copy(
+            cartaoEmEdicao = cartao,
+            diaFechamentoTexto = cartao.diaFechamento.toString(),
+            diaVencimentoTexto = cartao.diaVencimento.toString()
+        )
+    }
+
+    fun atualizarDiasCartao(fechamento: String, vencimento: String) {
+        formulario.value = formulario.value.copy(
+            diaFechamentoTexto = fechamento.filter(Char::isDigit),
+            diaVencimentoTexto = vencimento.filter(Char::isDigit)
+        )
+    }
+
+    fun salvarConfiguracaoCartao() {
+        val estado = formulario.value
+        val cartao = estado.cartaoEmEdicao ?: return
+
+        val fechamento = estado.diaFechamentoTexto
+            .toIntOrNull()
+
+        val vencimento = estado.diaVencimentoTexto
+            .toIntOrNull()
+
+        if (fechamento == null || vencimento == null ||
+            fechamento !in 1..31 || vencimento !in 1..31
+        ) {
+            formulario.value = estado.copy(
+                mensagem = "Informe fechamento e vencimento entre 1 e 31."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                cartaoRepository.atualizarConfiguracao(
+                    cartaoId = cartao.id,
+                    ativo = cartao.ativo,
+                    diaFechamento = fechamento,
+                    diaVencimento = vencimento
+                )
+            }.onSuccess {
+                formulario.value = estado.copy(
+                    cartaoEmEdicao = null,
+                    mensagem = "Configuração do cartão salva."
+                )
+            }.onFailure { erro ->
+                formulario.value = estado.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível salvar o cartão."
+                )
+            }
         }
     }
 

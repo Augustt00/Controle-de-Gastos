@@ -1,0 +1,361 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 3,
+    "identityHash": "cd9722af78eae135a58ccbf92db914ee",
+    "entities": [
+      {
+        "tableName": "tb_categorias",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nome` TEXT NOT NULL, `cor_hex` TEXT NOT NULL, `teto_mensal` INTEGER, `icone_chave` TEXT NOT NULL, `ativa` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nome",
+            "columnName": "nome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "corHex",
+            "columnName": "cor_hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tetoMensal",
+            "columnName": "teto_mensal",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "iconeChave",
+            "columnName": "icone_chave",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ativa",
+            "columnName": "ativa",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "tb_grupo_parcelamento",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `qtd_parcelas` INTEGER NOT NULL, `valor_total` INTEGER NOT NULL, `descricao_base` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "qtdParcelas",
+            "columnName": "qtd_parcelas",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valorTotal",
+            "columnName": "valor_total",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descricaoBase",
+            "columnName": "descricao_base",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "tb_despesas",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `valor` INTEGER NOT NULL, `descricao` TEXT NOT NULL, `data_vencimento` INTEGER NOT NULL, `data_pagamento` INTEGER, `status_pago` INTEGER NOT NULL, `categoria_id` INTEGER NOT NULL, `grupo_parcelamento_id` INTEGER, `cartao_id` INTEGER, FOREIGN KEY(`categoria_id`) REFERENCES `tb_categorias`(`id`) ON UPDATE NO ACTION ON DELETE RESTRICT , FOREIGN KEY(`grupo_parcelamento_id`) REFERENCES `tb_grupo_parcelamento`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`cartao_id`) REFERENCES `tb_cartoes`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valor",
+            "columnName": "valor",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "descricao",
+            "columnName": "descricao",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataVencimento",
+            "columnName": "data_vencimento",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dataPagamento",
+            "columnName": "data_pagamento",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "statusPago",
+            "columnName": "status_pago",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "categoriaId",
+            "columnName": "categoria_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "grupoParcelamentoId",
+            "columnName": "grupo_parcelamento_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "cartaoId",
+            "columnName": "cartao_id",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tb_despesas_categoria_id",
+            "unique": false,
+            "columnNames": [
+              "categoria_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tb_despesas_categoria_id` ON `${TABLE_NAME}` (`categoria_id`)"
+          },
+          {
+            "name": "index_tb_despesas_grupo_parcelamento_id",
+            "unique": false,
+            "columnNames": [
+              "grupo_parcelamento_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tb_despesas_grupo_parcelamento_id` ON `${TABLE_NAME}` (`grupo_parcelamento_id`)"
+          },
+          {
+            "name": "index_tb_despesas_data_vencimento",
+            "unique": false,
+            "columnNames": [
+              "data_vencimento"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tb_despesas_data_vencimento` ON `${TABLE_NAME}` (`data_vencimento`)"
+          },
+          {
+            "name": "index_tb_despesas_categoria_id_data_vencimento",
+            "unique": false,
+            "columnNames": [
+              "categoria_id",
+              "data_vencimento"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tb_despesas_categoria_id_data_vencimento` ON `${TABLE_NAME}` (`categoria_id`, `data_vencimento`)"
+          },
+          {
+            "name": "index_tb_despesas_cartao_id",
+            "unique": false,
+            "columnNames": [
+              "cartao_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tb_despesas_cartao_id` ON `${TABLE_NAME}` (`cartao_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tb_categorias",
+            "onDelete": "RESTRICT",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "categoria_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "tb_grupo_parcelamento",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "grupo_parcelamento_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "tb_cartoes",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "cartao_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "tb_cartoes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nome` TEXT NOT NULL, `marca_chave` TEXT NOT NULL, `cor_hex` TEXT NOT NULL, `ativo` INTEGER NOT NULL, `dia_fechamento` INTEGER NOT NULL, `dia_vencimento` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nome",
+            "columnName": "nome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "marcaChave",
+            "columnName": "marca_chave",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "corHex",
+            "columnName": "cor_hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ativo",
+            "columnName": "ativo",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "diaFechamento",
+            "columnName": "dia_fechamento",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "diaVencimento",
+            "columnName": "dia_vencimento",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tb_cartoes_marca_chave",
+            "unique": true,
+            "columnNames": [
+              "marca_chave"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tb_cartoes_marca_chave` ON `${TABLE_NAME}` (`marca_chave`)"
+          }
+        ]
+      },
+      {
+        "tableName": "tb_contas_saldo",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `nome` TEXT NOT NULL, `instituicao_chave` TEXT NOT NULL, `tipo` TEXT NOT NULL, `saldo_centavos` INTEGER NOT NULL, `cor_hex` TEXT NOT NULL, `ativo` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nome",
+            "columnName": "nome",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "instituicaoChave",
+            "columnName": "instituicao_chave",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tipo",
+            "columnName": "tipo",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "saldoCentavos",
+            "columnName": "saldo_centavos",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "corHex",
+            "columnName": "cor_hex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ativo",
+            "columnName": "ativo",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'cd9722af78eae135a58ccbf92db914ee')"
+    ]
+  }
+}

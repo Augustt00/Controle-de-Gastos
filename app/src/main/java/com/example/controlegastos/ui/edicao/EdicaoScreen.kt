@@ -6,6 +6,7 @@
 package com.example.controlegastos.ui.edicao
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -183,17 +185,33 @@ fun EdicaoScreen(
                             )
                         }
 
-                        items(instituicoesPredefinidas, key = { it.chave }) { instituicao ->
-                            val cartao = uiState.cartoes.firstOrNull {
-                                it.marcaChave == instituicao.chave
-                            }
-                            LinhaCartaoPredefinido(
-                                instituicao = instituicao,
-                                ativo = cartao?.ativo == true,
-                                onAtivacaoAlterada = { ativo ->
-                                    viewModel.alterarAtivacaoCartao(instituicao, ativo)
+                        instituicoesPredefinidas.forEach { instituicao ->
+                            item(key = instituicao.chave) {
+                                val cartao = uiState.cartoes.firstOrNull {
+                                    it.marcaChave == instituicao.chave
                                 }
-                            )
+                                LinhaCartaoPredefinido(
+                                    instituicao = instituicao,
+                                    cartao = cartao,
+                                    ativo = cartao?.ativo == true,
+                                    onAtivacaoAlterada = { ativo ->
+                                        viewModel.alterarAtivacaoCartao(instituicao, ativo)
+                                    },
+                                    onEditar = { cartaoExistente ->
+                                        viewModel.editarConfiguracaoCartao(cartaoExistente)
+                                    }
+                                )
+                            }
+
+                            if (uiState.cartaoEmEdicao?.marcaChave == instituicao.chave) {
+                                item(key = "${instituicao.chave}_editor") {
+                                    EditorDatasCartao(
+                                        uiState = uiState,
+                                        onDiasAlterados = viewModel::atualizarDiasCartao,
+                                        onSalvar = viewModel::salvarConfiguracaoCartao
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -335,16 +353,101 @@ private fun LinhaCategoria(categoria: Categoria, onAtivacaoAlterada: (Boolean) -
 @Composable
 private fun LinhaCartaoPredefinido(
     instituicao: InstituicaoPredefinida,
+    cartao: com.example.controlegastos.domain.model.Cartao?,
     ativo: Boolean,
-    onAtivacaoAlterada: (Boolean) -> Unit
+    onAtivacaoAlterada: (Boolean) -> Unit,
+    onEditar: (com.example.controlegastos.domain.model.Cartao) -> Unit
 ) {
-    LinhaConfiguracao(
-        badge = { BadgeInstituicao(instituicao) },
-        titulo = instituicao.nome,
-        subtitulo = if (ativo) "Cartão ativo" else "Cartão desativado",
-        ativo = ativo,
-        onAtivacaoAlterada = onAtivacaoAlterada
-    )
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                BadgeInstituicao(instituicao)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        instituicao.nome,
+                        color = CorTextoEdicao,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        if (ativo) "Cartão ativo" else "Cartão desativado",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Switch(checked = ativo, onCheckedChange = onAtivacaoAlterada)
+            }
+            if (ativo && cartao != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Fecha dia ${cartao.diaFechamento} • Vence dia ${cartao.diaVencimento}",
+                    color = CorTextoEdicao,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                Text(
+                    text = "Toque para editar os dias",
+                    modifier = Modifier.clickable { onEditar(cartao) },
+                    color = CorEdicao,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditorDatasCartao(
+    uiState: EdicaoUiState,
+    onDiasAlterados: (String, String) -> Unit,
+    onSalvar: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = CorEdicao.copy(alpha = 0.10f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Datas da fatura",
+                color = CorTextoEdicao,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = uiState.diaFechamentoTexto,
+                    onValueChange = { novo ->
+                        onDiasAlterados(novo, uiState.diaVencimentoTexto)
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Fecha dia") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = uiState.diaVencimentoTexto,
+                    onValueChange = { novo ->
+                        onDiasAlterados(uiState.diaFechamentoTexto, novo)
+                    },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Vence dia") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true
+                )
+            }
+            Button(
+                onClick = onSalvar,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Salvar datas")
+            }
+        }
+    }
 }
 
 @Composable

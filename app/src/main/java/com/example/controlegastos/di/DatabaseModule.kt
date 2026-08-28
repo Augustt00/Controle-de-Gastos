@@ -29,7 +29,11 @@ object DatabaseModule {
             ControleGastosDatabase::class.java,
             ControleGastosDatabase.DATABASE_NAME
         )
-            .addMigrations(ControleGastosDatabase.MIGRATION_1_2)
+            .addMigrations(
+                ControleGastosDatabase.MIGRATION_1_2,
+                ControleGastosDatabase.MIGRATION_2_3,
+                ControleGastosDatabase.MIGRATION_3_4
+            )
             .build()
     }
 

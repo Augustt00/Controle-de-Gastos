@@ -34,13 +34,45 @@ class CartaoRepositoryImpl @Inject constructor(
         return cartaoDao.atualizarAtivacao(cartaoId, ativo) > 0
     }
 
-    private fun CartaoEntity.toDomain() = Cartao(id, nome, marcaChave, corHex, ativo)
+    override fun observarAtivos(): Flow<List<Cartao>> {
+        return cartaoDao.observarAtivos().map { cartoes ->
+            cartoes.map { cartao ->
+                cartao.toDomain()
+            }
+        }
+    }
+
+    override suspend fun atualizarConfiguracao(
+        cartaoId: Int,
+        ativo: Boolean,
+        diaFechamento: Int,
+        diaVencimento: Int
+    ): Boolean {
+        return cartaoDao.atualizarConfiguracao(
+            cartaoId = cartaoId,
+            ativo = ativo,
+            diaFechamento = diaFechamento,
+            diaVencimento = diaVencimento
+        ) > 0
+    }
+
+    private fun CartaoEntity.toDomain() = Cartao(
+        id = id,
+        nome = nome,
+        marcaChave = marcaChave,
+        corHex = corHex,
+        ativo = ativo,
+        diaFechamento = diaFechamento,
+        diaVencimento = diaVencimento
+    )
 
     private fun Cartao.toEntity(id: Int = this.id) = CartaoEntity(
         id = id,
         nome = nome,
         marcaChave = marcaChave,
         corHex = corHex,
-        ativo = ativo
+        ativo = ativo,
+        diaFechamento = diaFechamento,
+        diaVencimento = diaVencimento
     )
 }

@@ -25,7 +25,7 @@ import com.example.controlegastos.data.local.entity.GrupoParcelamentoEntity
         CartaoEntity::class,
         ContaSaldoEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
@@ -78,6 +78,139 @@ abstract class ControleGastosDatabase : RoomDatabase() {
                     )
                     """.trimIndent()
                 )
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE tb_despesas_nova (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        valor INTEGER NOT NULL,
+                        descricao TEXT NOT NULL,
+                        data_vencimento INTEGER NOT NULL,
+                        data_pagamento INTEGER,
+                        status_pago INTEGER NOT NULL,
+                        categoria_id INTEGER NOT NULL,
+                        grupo_parcelamento_id INTEGER,
+                        cartao_id INTEGER,
+                        FOREIGN KEY(categoria_id)
+                            REFERENCES tb_categorias(id)
+                            ON UPDATE NO ACTION
+                            ON DELETE RESTRICT,
+                        FOREIGN KEY(grupo_parcelamento_id)
+                            REFERENCES tb_grupo_parcelamento(id)
+                            ON UPDATE NO ACTION
+                            ON DELETE CASCADE,
+                        FOREIGN KEY(cartao_id)
+                            REFERENCES tb_cartoes(id)
+                            ON UPDATE NO ACTION
+                            ON DELETE SET NULL
+                    )
+                    """.trimIndent()
+                )
+
+                database.execSQL(
+                    """
+                    INSERT INTO tb_despesas_nova (
+                        id,
+                        valor,
+                        descricao,
+                        data_vencimento,
+                        data_pagamento,
+                        status_pago,
+                        categoria_id,
+                        grupo_parcelamento_id,
+                        cartao_id
+                    )
+                    SELECT
+                        id,
+                        valor,
+                        descricao,
+                        data_vencimento,
+                        data_pagamento,
+                        status_pago,
+                        categoria_id,
+                        grupo_parcelamento_id,
+                        NULL
+                    FROM tb_despesas
+                    """.trimIndent()
+                )
+
+                database.execSQL("DROP TABLE tb_despesas")
+                database.execSQL("ALTER TABLE tb_despesas_nova RENAME TO tb_despesas")
+
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tb_despesas_categoria_id " +
+                            "ON tb_despesas (categoria_id)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tb_despesas_grupo_parcelamento_id " +
+                            "ON tb_despesas (grupo_parcelamento_id)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tb_despesas_data_vencimento " +
+                            "ON tb_despesas (data_vencimento)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS " +
+                            "index_tb_despesas_categoria_id_data_vencimento " +
+                            "ON tb_despesas (categoria_id, data_vencimento)"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tb_despesas_cartao_id " +
+                            "ON tb_despesas (cartao_id)"
+                )
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS tb_despesas_nova (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        valor INTEGER NOT NULL,
+                        descricao TEXT NOT NULL,
+                        data_compra INTEGER NOT NULL,
+                        data_vencimento INTEGER NOT NULL,
+                        data_pagamento INTEGER,
+                        status_pago INTEGER NOT NULL,
+                        categoria_id INTEGER NOT NULL,
+                        grupo_parcelamento_id INTEGER,
+                        cartao_id INTEGER,
+                        FOREIGN KEY(categoria_id) REFERENCES tb_categorias(id)
+                            ON UPDATE NO ACTION ON DELETE RESTRICT,
+                        FOREIGN KEY(grupo_parcelamento_id) REFERENCES tb_grupo_parcelamento(id)
+                            ON UPDATE NO ACTION ON DELETE CASCADE,
+                        FOREIGN KEY(cartao_id) REFERENCES tb_cartoes(id)
+                            ON UPDATE NO ACTION ON DELETE SET NULL
+                    )
+                    """.trimIndent()
+                )
+                database.execSQL(
+                    """
+                    INSERT INTO tb_despesas_nova (
+                        id, valor, descricao, data_compra, data_vencimento,
+                        data_pagamento, status_pago, categoria_id,
+                        grupo_parcelamento_id, cartao_id
+                    )
+                    SELECT
+                        id, valor, descricao, data_vencimento, data_vencimento,
+                        data_pagamento, status_pago, categoria_id,
+                        grupo_parcelamento_id, cartao_id
+                    FROM tb_despesas
+                    """.trimIndent()
+                )
+                database.execSQL("DROP TABLE tb_despesas")
+                database.execSQL("ALTER TABLE tb_despesas_nova RENAME TO tb_despesas")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_categoria_id ON tb_despesas(categoria_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_grupo_parcelamento_id ON tb_despesas(grupo_parcelamento_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_data_vencimento ON tb_despesas(data_vencimento)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_data_compra ON tb_despesas(data_compra)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_categoria_id_data_compra ON tb_despesas(categoria_id, data_compra)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_cartao_id ON tb_despesas(cartao_id)")
             }
         }
     }

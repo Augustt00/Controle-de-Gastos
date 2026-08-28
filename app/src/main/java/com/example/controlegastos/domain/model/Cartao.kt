@@ -5,5 +5,7 @@ data class Cartao(
     val nome: String,
     val marcaChave: String,
     val corHex: String,
-    val ativo: Boolean = true
+    val ativo: Boolean = true,
+    val diaFechamento: Int = 29,
+    val diaVencimento: Int = 5
 )

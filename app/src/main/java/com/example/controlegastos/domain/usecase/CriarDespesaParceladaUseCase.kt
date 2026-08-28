@@ -11,77 +11,47 @@ import javax.inject.Inject
 class CriarDespesaParceladaUseCase @Inject constructor(
     private val despesaRepository: DespesaRepository
 ) {
+    suspend operator fun invoke(novaDespesa: NovaDespesaParcelada): Int {
+        val descricao = novaDespesa.descricao.trim()
+        require(descricao.isNotBlank()) { "A descrição da despesa é obrigatória." }
+        require(novaDespesa.valorTotalCentavos > 0L) { "O valor total precisa ser maior que zero." }
+        require(novaDespesa.quantidadeParcelas > 0) { "A quantidade de parcelas precisa ser maior que zero." }
+        require(novaDespesa.categoriaId > 0) { "Selecione uma categoria válida." }
 
-    suspend operator fun invoke(
-        novaDespesa: NovaDespesaParcelada
-    ): Int {
-        val descricaoNormalizada = novaDespesa.descricao.trim()
-
-        require(descricaoNormalizada.isNotBlank()) {
-            "A descrição da despesa é obrigatória."
-        }
-
-        require(novaDespesa.valorTotalCentavos > 0L) {
-            "O valor total precisa ser maior que zero."
-        }
-
-        require(novaDespesa.quantidadeParcelas > 0) {
-            "A quantidade de parcelas precisa ser maior que zero."
-        }
-
-        require(novaDespesa.categoriaId > 0) {
-            "Selecione uma categoria válida."
-        }
-
-        val dataBase = Instant
-            .ofEpochMilli(novaDespesa.dataPrimeiroVencimento)
-            .atZone(ZoneOffset.UTC)
-            .toLocalDate()
-
-        val valorBaseParcela =
-            novaDespesa.valorTotalCentavos / novaDespesa.quantidadeParcelas
-
-        val restoCentavos =
-            novaDespesa.valorTotalCentavos % novaDespesa.quantidadeParcelas
+        val dataCompraBase = Instant.ofEpochMilli(novaDespesa.dataCompra)
+            .atZone(ZoneOffset.UTC).toLocalDate()
+        val vencimentoBase = Instant.ofEpochMilli(novaDespesa.dataPrimeiroVencimento)
+            .atZone(ZoneOffset.UTC).toLocalDate()
+        val valorBase = novaDespesa.valorTotalCentavos / novaDespesa.quantidadeParcelas
+        val resto = novaDespesa.valorTotalCentavos % novaDespesa.quantidadeParcelas
 
         val grupo = GrupoParcelamento(
             id = 0,
             qtdParcelas = novaDespesa.quantidadeParcelas,
             valorTotal = novaDespesa.valorTotalCentavos,
-            descricaoBase = descricaoNormalizada
+            descricaoBase = descricao
         )
 
         val despesas = (0 until novaDespesa.quantidadeParcelas).map { indice ->
-            val numeroParcela = indice + 1
-
-            val valorParcela = valorBaseParcela +
-                    if (indice.toLong() < restoCentavos) 1L else 0L
-
-            val vencimentoDaParcela = dataBase
-                .plusMonths(indice.toLong())
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant()
-                .toEpochMilli()
+            val numero = indice + 1
+            val valor = valorBase + if (indice.toLong() < resto) 1L else 0L
+            val dataCompraParcela = dataCompraBase.plusMonths(indice.toLong())
+            val vencimentoParcela = vencimentoBase.plusMonths(indice.toLong())
 
             Despesa(
                 id = 0,
-                valor = valorParcela,
-                descricao = if (novaDespesa.quantidadeParcelas == 1) {
-                    descricaoNormalizada
-                } else {
-                    "$descricaoNormalizada ($numeroParcela/${novaDespesa.quantidadeParcelas})"
-                },
-                dataVencimento = vencimentoDaParcela,
+                valor = valor,
+                descricao = if (novaDespesa.quantidadeParcelas == 1) descricao
+                else "$descricao ($numero/${novaDespesa.quantidadeParcelas})",
+                dataCompra = dataCompraParcela.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+                dataVencimento = vencimentoParcela.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
                 dataPagamento = null,
                 statusPago = false,
                 categoriaId = novaDespesa.categoriaId,
-                grupoParcelamentoId = null
+                grupoParcelamentoId = null,
+                cartaoId = novaDespesa.cartaoId
             )
         }
-
-        return despesaRepository.criarDespesaParcelada(
-            grupo = grupo,
-            despesas = despesas
-        )
+        return despesaRepository.criarDespesaParcelada(grupo, despesas)
     }
 }

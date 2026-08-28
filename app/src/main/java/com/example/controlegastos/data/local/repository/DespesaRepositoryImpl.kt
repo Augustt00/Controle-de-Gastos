@@ -192,6 +192,10 @@ class DespesaRepositoryImpl @Inject constructor(
             id = id,
             valor = valor,
             descricao = descricao,
+            dataCompra = dataCompra
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
             dataVencimento = dataVencimento
                 .atStartOfDay(ZoneOffset.UTC)
                 .toInstant()
@@ -202,7 +206,8 @@ class DespesaRepositoryImpl @Inject constructor(
                 ?.toEpochMilli(),
             statusPago = statusPago,
             categoriaId = categoriaId,
-            grupoParcelamentoId = grupoParcelamentoId
+            grupoParcelamentoId = grupoParcelamentoId,
+            cartaoId = cartaoId
         )
     }
 
@@ -211,6 +216,9 @@ class DespesaRepositoryImpl @Inject constructor(
             id = id,
             valor = valor,
             descricao = descricao,
+            dataCompra = Instant.ofEpochMilli(dataCompra)
+                .atZone(ZoneOffset.UTC)
+                .toLocalDate(),
             dataVencimento = Instant
                 .ofEpochMilli(dataVencimento)
                 .atZone(ZoneOffset.UTC)
@@ -221,7 +229,8 @@ class DespesaRepositoryImpl @Inject constructor(
                 ?.toLocalDate(),
             statusPago = statusPago,
             categoriaId = categoriaId,
-            grupoParcelamentoId = grupoParcelamentoId
+            grupoParcelamentoId = grupoParcelamentoId,
+            cartaoId = cartaoId
         )
     }
 
@@ -230,6 +239,10 @@ class DespesaRepositoryImpl @Inject constructor(
             id = despesa.id,
             valor = despesa.valor,
             descricao = despesa.descricao,
+            dataCompra = despesa.dataCompra
+                .atStartOfDay(ZoneOffset.UTC)
+                .toInstant()
+                .toEpochMilli(),
             dataVencimento = despesa.dataVencimento
                 .atStartOfDay(ZoneOffset.UTC)
                 .toInstant()
@@ -237,7 +250,8 @@ class DespesaRepositoryImpl @Inject constructor(
             statusPago = despesa.statusPago,
             categoriaId = categoria.id,
             categoriaNome = categoria.nome,
-            categoriaCorHex = categoria.corHex
+            categoriaCorHex = categoria.corHex,
+            cartaoId = despesa.cartaoId
         )
     }
 
@@ -257,4 +271,5 @@ class DespesaRepositoryImpl @Inject constructor(
             totalPendente = totalCentavos
         )
     }
+
 }

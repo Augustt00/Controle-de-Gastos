@@ -5,6 +5,7 @@ import com.example.controlegastos.domain.model.Categoria
 import com.example.controlegastos.domain.model.ContaSaldo
 import com.example.controlegastos.domain.model.TipoContaSaldo
 
+
 data class EdicaoUiState(
     val carregando: Boolean = true,
     val salvando: Boolean = false,
@@ -20,6 +21,10 @@ data class EdicaoUiState(
     val instituicaoSelecionada: InstituicaoPredefinida = instituicoesPredefinidas.first(),
     val tipoContaSelecionado: TipoContaSaldo = TipoContaSaldo.CONTA,
     val saldoInicialTexto: String = "",
+    val cartaoEmEdicao: Cartao? = null,
+    val diaFechamentoTexto: String = "29",
+    val diaVencimentoTexto: String = "5",
+    val tipoSaldoSelecionado: TipoContaSaldo = TipoContaSaldo.CONTA,
 
     val mensagem: String? = null
 )
