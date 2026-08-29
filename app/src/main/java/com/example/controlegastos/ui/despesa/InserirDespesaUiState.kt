@@ -19,5 +19,6 @@ data class InserirDespesaUiState(
     val carregandoCartoes: Boolean = true,
     val salvando: Boolean = false,
     val mensagemErro: String? = null,
+    val quantidadeMesesFixa: Int = 12,
     val despesaSalvaComSucesso: Boolean = false
 )

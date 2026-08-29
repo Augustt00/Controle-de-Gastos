@@ -2,10 +2,12 @@ package com.example.controlegastos.ui.gastos
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.controlegastos.domain.model.FaturaMensal
 import com.example.controlegastos.domain.model.GastoMensal
 import com.example.controlegastos.domain.repository.DespesaRepository
+import com.example.controlegastos.domain.usecase.ExcluirDespesaUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,60 +15,54 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.time.YearMonth
 import javax.inject.Inject
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class GastosViewModel @Inject constructor(
-    private val despesaRepository: DespesaRepository
+    private val despesaRepository: DespesaRepository,
+    private val excluirDespesaUseCase: ExcluirDespesaUseCase
 ) : ViewModel() {
 
-    private val mesAtual = YearMonth.now()
+    private val mesSelecionado = MutableStateFlow(YearMonth.now())
 
-    private val mesesDoGrafico = List(8) { indice ->
-        mesAtual.minusMonths(5).plusMonths(indice.toLong())
-    }
+    private val faturasComIntervalo = despesaRepository
+        .observarFaturasAbertasPorMes()
+        .map { faturas -> faturas.preencherMesesIntermediarios() }
 
-    private val mesSelecionado = MutableStateFlow(mesAtual)
-
-    private val gastosMensais: Flow<List<GastoMensal>> = combine(
-        mesesDoGrafico.map { mesAno ->
-            despesaRepository
-                .observarTotalGastoPorMes(
-                    mes = mesAno.monthValue,
-                    ano = mesAno.year
-                )
-                .map { total ->
-                    GastoMensal(
-                        mesAno = mesAno,
-                        totalCentavos = total
-                    )
-                }
-        }
-    ) { totais ->
-        totais.toList()
-    }
-
-    private val despesasDoMes = mesSelecionado.flatMapLatest { mesAno ->
-        despesaRepository.observarDespesasDetalhadasPorMes(
+    private val despesasDaFatura = mesSelecionado.flatMapLatest { mesAno ->
+        despesaRepository.observarDespesasDetalhadasDaFatura(
             mes = mesAno.monthValue,
             ano = mesAno.year
         )
     }
 
     val uiState: StateFlow<GastosUiState> = combine(
-        gastosMensais,
+        faturasComIntervalo,
         mesSelecionado,
-        despesasDoMes
-    ) { totais, mesAno, despesas ->
+        despesasDaFatura
+    ) { faturas, selecionado, despesas ->
+        val mesValido = when {
+            faturas.any { it.mesAno == selecionado } -> selecionado
+            faturas.any { it.mesAno == YearMonth.now() } -> YearMonth.now()
+            faturas.isNotEmpty() -> faturas.first().mesAno
+            else -> selecionado
+        }
+
         GastosUiState(
             carregando = false,
-            mesSelecionado = mesAno,
-            gastosMensais = totais,
-            totalMesSelecionado = totais
-                .firstOrNull { it.mesAno == mesAno }
-                ?.totalCentavos
-                ?: 0L,
+            mesSelecionado = mesValido,
+            gastosMensais = faturas.map { fatura ->
+                GastoMensal(
+                    mesAno = fatura.mesAno,
+                    totalCentavos = fatura.totalCentavos
+                )
+            },
+            totalMesSelecionado = faturas.firstOrNull {
+                it.mesAno == mesValido
+            }?.totalCentavos ?: 0L,
             despesasDoMes = despesas.sortedByDescending { it.dataCompra }
         )
     }.stateIn(
@@ -78,4 +74,28 @@ class GastosViewModel @Inject constructor(
     fun selecionarMes(mesAno: YearMonth) {
         mesSelecionado.value = mesAno
     }
+
+    fun excluirDespesa(despesaId: Int) {
+        viewModelScope.launch {
+            excluirDespesaUseCase(despesaId)
+        }
+    }
+}
+
+private fun List<FaturaMensal>.preencherMesesIntermediarios(): List<FaturaMensal> {
+    if (isEmpty()) return emptyList()
+
+    val totaisPorMes = associateBy { it.mesAno }
+    val primeiroMesComFatura = minOf { it.mesAno }
+    val ultimoMesComFatura = maxOf { it.mesAno }
+    val primeiroMes = primeiroMesComFatura.minusMonths(1)
+
+    return generateSequence(primeiroMes) { mesAtual ->
+        mesAtual.takeIf { it < ultimoMesComFatura }?.plusMonths(1)
+    }.map { mesAno ->
+        totaisPorMes[mesAno] ?: FaturaMensal(
+            mesAno = mesAno,
+            totalCentavos = 0L
+        )
+    }.toList()
 }

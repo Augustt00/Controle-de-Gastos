@@ -244,6 +244,16 @@ private fun FormularioDespesa(
             }
         }
 
+        if (uiState.tipoLancamento == TipoLancamento.FIXA) {
+            item {
+                Text(
+                    text = "Esta despesa será repetida por 12 meses.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
         item {
             Button(
                 onClick = onSalvar,

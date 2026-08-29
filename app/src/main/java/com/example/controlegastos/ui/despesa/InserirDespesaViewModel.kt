@@ -117,6 +117,18 @@ class InserirDespesaViewModel @Inject constructor(
         )
     }
 
+    fun atualizarQuantidadeMesesFixa(valor: String) {
+        val quantidade = valor
+            .filter(Char::isDigit)
+            .toIntOrNull()
+            ?.coerceIn(1, 12)
+            ?: 1
+        formulario.value = formulario.value.copy(
+            quantidadeMesesFixa = quantidade,
+            mensagemErro = null
+        )
+    }
+
     fun salvarDespesa() {
         val estadoAtual = formulario.value
         val categoria = estadoAtual.categoriaSelecionada
@@ -157,9 +169,11 @@ class InserirDespesaViewModel @Inject constructor(
                     NovaDespesaParcelada(
                         descricao = estadoAtual.descricao,
                         valorTotalCentavos = valorCentavos,
-                        quantidadeParcelas = if (estadoAtual.tipoLancamento == TipoLancamento.PARCELADA) {
-                            estadoAtual.quantidadeParcelas
-                        } else 1,
+                        quantidadeParcelas = when (estadoAtual.tipoLancamento) {
+                            TipoLancamento.UNICA -> 1
+                            TipoLancamento.PARCELADA -> estadoAtual.quantidadeParcelas
+                            TipoLancamento.FIXA -> 12
+                        },
                         dataCompra = estadoAtual.dataCompra
                             .atStartOfDay(ZoneOffset.UTC)
                             .toInstant()
@@ -169,7 +183,8 @@ class InserirDespesaViewModel @Inject constructor(
                             .toInstant()
                             .toEpochMilli(),
                         categoriaId = categoria.id,
-                        cartaoId = cartao?.id
+                        cartaoId = cartao?.id,
+                        tipoLancamento = estadoAtual.tipoLancamento
                     )
                 )
                 formulario.value = InserirDespesaUiState(

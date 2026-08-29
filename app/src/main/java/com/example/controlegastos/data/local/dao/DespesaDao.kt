@@ -9,6 +9,7 @@ import androidx.room.Update
 import com.example.controlegastos.data.local.entity.DespesaEntity
 import com.example.controlegastos.data.local.projection.CategoriaSomaTuple
 import com.example.controlegastos.data.local.projection.DespesaComCategoria
+import com.example.controlegastos.data.local.projection.FaturaMensalTuple
 import com.example.controlegastos.data.local.projection.ProjecaoMesTuple
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
@@ -321,6 +322,56 @@ interface DespesaDao {
 
     @Query(
         """
+    SELECT
+        CAST(strftime('%Y', data_vencimento / 1000, 'unixepoch') AS INTEGER) AS ano,
+        CAST(strftime('%m', data_vencimento / 1000, 'unixepoch') AS INTEGER) AS mes,
+        COALESCE(SUM(valor), 0) AS total_centavos
+    FROM tb_despesas
+    WHERE status_pago = 0
+    GROUP BY ano, mes
+    ORDER BY ano ASC, mes ASC
+    """
+    )
+    fun observarFaturasAbertasPorMes(): Flow<List<FaturaMensalTuple>>
+
+    @Query(
+        """
+    SELECT
+        d.id AS despesa_id,
+        d.valor AS despesa_valor,
+        d.descricao AS despesa_descricao,
+        d.data_compra AS despesa_data_compra,
+        d.data_vencimento AS despesa_data_vencimento,
+        d.data_pagamento AS despesa_data_pagamento,
+        d.status_pago AS despesa_status_pago,
+        d.categoria_id AS despesa_categoria_id,
+        d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+        d.cartao_id AS despesa_cartao_id,
+        c.id AS categoria_id,
+        c.nome AS categoria_nome,
+        c.cor_hex AS categoria_cor_hex,
+        c.teto_mensal AS categoria_teto_mensal,
+        c.icone_chave AS categoria_icone_chave,
+        c.ativa AS categoria_ativa
+    FROM tb_despesas d
+    INNER JOIN tb_categorias c ON c.id = d.categoria_id
+    WHERE d.status_pago = 0
+      AND d.data_vencimento >= (
+          CAST(strftime('%s', printf('%04d-%02d-01', :ano, :mes)) AS INTEGER) * 1000
+      )
+      AND d.data_vencimento < (
+          CAST(strftime('%s', printf('%04d-%02d-01', :ano, :mes), '+1 month') AS INTEGER) * 1000
+      )
+    ORDER BY d.data_compra ASC
+    """
+    )
+    fun observarDespesasDetalhadasDaFatura(
+        mes: Int,
+        ano: Int
+    ): Flow<List<DespesaComCategoria>>
+
+    @Query(
+        """
     UPDATE tb_despesas
     SET
         status_pago = 1,
@@ -343,4 +394,25 @@ interface DespesaDao {
 
     @Query("DELETE FROM tb_despesas")
     suspend fun limparTodas()
+
+    @Query("DELETE FROM tb_despesas WHERE id = :despesaId")
+    suspend fun excluirPorId(despesaId: Int): Int
+
+    @Query(
+        """
+        DELETE FROM tb_despesas
+        WHERE grupo_parcelamento_id = :grupoId
+          AND data_vencimento >= :dataInicial
+        """
+    )
+    suspend fun excluirParcelasDoGrupoAPartirDe(
+        grupoId: Int,
+        dataInicial: LocalDate
+    ): Int
+
+    @Query("SELECT grupo_parcelamento_id FROM tb_despesas WHERE id = :despesaId LIMIT 1")
+    suspend fun buscarGrupoIdPorDespesa(despesaId: Int): Int?
+
+    @Query("SELECT data_vencimento FROM tb_despesas WHERE id = :despesaId LIMIT 1")
+    suspend fun buscarDataVencimentoPorId(despesaId: Int): LocalDate?
 }

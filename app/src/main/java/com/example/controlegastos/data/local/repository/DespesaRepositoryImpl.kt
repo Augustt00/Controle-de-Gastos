@@ -17,6 +17,9 @@ import com.example.controlegastos.domain.model.DespesaDetalhada
 import com.example.controlegastos.data.local.projection.DespesaComCategoria
 import com.example.controlegastos.domain.model.ProjecaoMensal
 import com.example.controlegastos.data.local.projection.ProjecaoMesTuple
+import com.example.controlegastos.data.local.projection.FaturaMensalTuple
+import com.example.controlegastos.domain.model.FaturaMensal
+import java.time.YearMonth
 
 class DespesaRepositoryImpl @Inject constructor(
     private val database: ControleGastosDatabase
@@ -139,6 +142,10 @@ class DespesaRepositoryImpl @Inject constructor(
             }
     }
 
+    override suspend fun excluirPorId(despesaId: Int): Boolean {
+        return despesaDao.excluirPorId(despesaId) > 0
+    }
+
     override suspend fun marcarComoPaga(
         despesaId: Int,
         dataPagamentoEpoch: Long
@@ -234,6 +241,27 @@ class DespesaRepositoryImpl @Inject constructor(
         )
     }
 
+    override fun observarFaturasAbertasPorMes(): Flow<List<FaturaMensal>> {
+        return despesaDao.observarFaturasAbertasPorMes().map { faturas ->
+            faturas.map { fatura ->
+                FaturaMensal(
+                    mesAno = YearMonth.of(fatura.ano, fatura.mes),
+                    totalCentavos = fatura.totalCentavos
+                )
+            }
+        }
+    }
+
+    override fun observarDespesasDetalhadasDaFatura(
+        mes: Int,
+        ano: Int
+    ): Flow<List<DespesaDetalhada>> {
+        return despesaDao.observarDespesasDetalhadasDaFatura(mes, ano)
+            .map { despesas ->
+                despesas.map { it.toDomainDetalhada() }
+            }
+    }
+
     private fun DespesaComCategoria.toDomainDetalhada(): DespesaDetalhada {
         return DespesaDetalhada(
             id = despesa.id,
@@ -270,6 +298,22 @@ class DespesaRepositoryImpl @Inject constructor(
             mes = mes,
             totalPendente = totalCentavos
         )
+    }
+
+    override suspend fun excluirDespesaEParcelasFuturas(
+        despesaId: Int
+    ): Boolean {
+        val grupoId = despesaDao.buscarGrupoIdPorDespesa(despesaId)
+        val dataInicial = despesaDao.buscarDataVencimentoPorId(despesaId)
+
+        return if (grupoId == null || dataInicial == null) {
+            despesaDao.excluirPorId(despesaId) > 0
+        } else {
+            despesaDao.excluirParcelasDoGrupoAPartirDe(
+                grupoId = grupoId,
+                dataInicial = dataInicial
+            ) > 0
+        }
     }
 
 }

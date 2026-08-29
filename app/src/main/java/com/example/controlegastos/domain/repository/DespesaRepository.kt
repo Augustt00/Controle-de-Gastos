@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import com.example.controlegastos.domain.model.GastoPorCategoria
 import com.example.controlegastos.domain.model.DespesaDetalhada
 import com.example.controlegastos.domain.model.ProjecaoMensal
+import com.example.controlegastos.domain.model.FaturaMensal
 
 
 interface DespesaRepository {
@@ -18,6 +19,13 @@ interface DespesaRepository {
     fun observarPorCategoria(
         categoriaId: Int
     ): Flow<List<Despesa>>
+
+    fun observarFaturasAbertasPorMes(): Flow<List<FaturaMensal>>
+
+    fun observarDespesasDetalhadasDaFatura(
+        mes: Int,
+        ano: Int
+    ): Flow<List<DespesaDetalhada>>
 
     fun observarDespesasDetalhadasPorMes(
         mes: Int,
@@ -67,4 +75,8 @@ interface DespesaRepository {
         despesaId: Int,
         dataPagamentoEpoch: Long
     ): Boolean
+
+    suspend fun excluirPorId(despesaId: Int): Boolean
+
+    suspend fun excluirDespesaEParcelasFuturas(despesaId: Int): Boolean
 }

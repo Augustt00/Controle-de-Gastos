@@ -7,5 +7,6 @@ data class NovaDespesaParcelada(
     val dataCompra: Long,
     val dataPrimeiroVencimento: Long,
     val categoriaId: Int,
-    val cartaoId: Int? = null
+    val cartaoId: Int? = null,
+    val tipoLancamento: TipoLancamento = TipoLancamento.PARCELADA
 )
