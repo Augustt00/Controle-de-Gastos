@@ -25,7 +25,7 @@ import com.example.controlegastos.data.local.entity.GrupoParcelamentoEntity
         CartaoEntity::class,
         ContaSaldoEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = true
 )
 @TypeConverters(DatabaseConverters::class)
@@ -211,6 +211,24 @@ abstract class ControleGastosDatabase : RoomDatabase() {
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_data_compra ON tb_despesas(data_compra)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_categoria_id_data_compra ON tb_despesas(categoria_id, data_compra)")
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_tb_despesas_cartao_id ON tb_despesas(cartao_id)")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE tb_despesas ADD COLUMN conta_saldo_id INTEGER DEFAULT NULL"
+                )
+                database.execSQL(
+                    "ALTER TABLE tb_despesas ADD COLUMN tipo_lancamento TEXT NOT NULL DEFAULT 'UNICA'"
+                )
+                database.execSQL(
+                    "ALTER TABLE tb_despesas ADD COLUMN origem_pagamento TEXT DEFAULT NULL"
+                )
+                database.execSQL(
+                    "CREATE INDEX IF NOT EXISTS index_tb_despesas_conta_saldo_id " +
+                            "ON tb_despesas(conta_saldo_id)"
+                )
             }
         }
     }

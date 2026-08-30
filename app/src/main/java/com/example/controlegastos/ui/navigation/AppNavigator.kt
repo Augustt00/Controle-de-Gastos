@@ -27,6 +27,8 @@ import com.example.controlegastos.ui.timeline.TimelineScreen
 import com.example.controlegastos.ui.settings.SettingsScreen
 import com.example.controlegastos.ui.gastos.GastosScreen
 import com.example.controlegastos.ui.edicao.EdicaoScreen
+import com.example.controlegastos.ui.transacoes.TransacoesScreen
+
 
 @Composable
 fun AppNavigator() {
@@ -49,7 +51,7 @@ private class DashboardVoyagerScreen : Screen {
                 navigator?.push(InserirDespesaVoyagerScreen())
             },
             onVerTodasTransacoes = {
-                navigator?.push(HistoricoScreen())
+                navigator?.push(TransacoesVoyagerScreen())
             },
             onVerProjecoes = {
                 navigator?.push(TimelineVoyagerScreen())
@@ -109,43 +111,11 @@ private class EdicaoVoyagerScreen : Screen {
     }
 }
 
-private class HistoricoScreen : Screen {
-
+private class TransacoesVoyagerScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
-
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(text = "Todas as transações")
-                    },
-                    navigationIcon = {
-                        TextButton(
-                            onClick = {
-                                navigator?.pop()
-                            }
-                        ) {
-                            Text(text = "Voltar")
-                        }
-                    }
-                )
-            }
-        ) { innerPadding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Text(
-                    text = "O histórico completo será implementado na Sprint 6."
-                )
-            }
-        }
+        TransacoesScreen(onVoltar = { navigator?.pop() })
     }
 }
 

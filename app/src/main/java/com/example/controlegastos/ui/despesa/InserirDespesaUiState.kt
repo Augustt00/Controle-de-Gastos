@@ -4,6 +4,8 @@ import com.example.controlegastos.domain.model.Cartao
 import com.example.controlegastos.domain.model.Categoria
 import com.example.controlegastos.domain.model.TipoLancamento
 import java.time.LocalDate
+import com.example.controlegastos.domain.model.ContaSaldo
+import com.example.controlegastos.domain.model.OrigemPagamento
 
 data class InserirDespesaUiState(
     val valorTexto: String = "",
@@ -20,5 +22,9 @@ data class InserirDespesaUiState(
     val salvando: Boolean = false,
     val mensagemErro: String? = null,
     val quantidadeMesesFixa: Int = 12,
-    val despesaSalvaComSucesso: Boolean = false
+    val despesaSalvaComSucesso: Boolean = false,
+    val contasSaldo: List<ContaSaldo> = emptyList(),
+    val contaSaldoSelecionada: ContaSaldo? = null,
+    val origemPagamento: OrigemPagamento? = null,
+    val carregandoContasSaldo: Boolean = true
 )

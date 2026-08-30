@@ -21,7 +21,9 @@ interface DespesaDao {
     suspend fun insertDespesa(despesa: DespesaEntity): Long
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insertDespesas(despesas: List<DespesaEntity>): List<Long>
+    suspend fun insertDespesas(
+        despesas: List<DespesaEntity>
+    ): List<Long>
 
     @Update
     suspend fun atualizarDespesa(despesa: DespesaEntity): Int
@@ -42,6 +44,9 @@ interface DespesaDao {
             d.categoria_id AS despesa_categoria_id,
             d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
             d.cartao_id AS despesa_cartao_id,
+            d.conta_saldo_id AS despesa_conta_saldo_id,
+            d.tipo_lancamento AS despesa_tipo_lancamento,
+            d.origem_pagamento AS despesa_origem_pagamento,
 
             c.id AS categoria_id,
             c.nome AS categoria_nome,
@@ -52,6 +57,7 @@ interface DespesaDao {
 
         FROM tb_despesas d
         INNER JOIN tb_categorias c ON c.id = d.categoria_id
+
         WHERE d.data_compra >= (
             CAST(
                 strftime(
@@ -69,6 +75,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
+
         ORDER BY d.data_compra ASC
         """
     )
@@ -80,14 +87,15 @@ interface DespesaDao {
     @Query(
         """
         SELECT
-    c.id AS categoria_id,
-    c.nome AS categoria_nome,
-    c.cor_hex AS categoria_cor_hex,
-    c.teto_mensal AS teto_mensal,
-    COALESCE(SUM(d.valor), 0) AS total_centavos
+            c.id AS categoria_id,
+            c.nome AS categoria_nome,
+            c.cor_hex AS categoria_cor_hex,
+            c.teto_mensal AS teto_mensal,
+            COALESCE(SUM(d.valor), 0) AS total_centavos
 
         FROM tb_despesas d
         INNER JOIN tb_categorias c ON c.id = d.categoria_id
+
         WHERE d.data_compra >= (
             CAST(
                 strftime(
@@ -105,6 +113,7 @@ interface DespesaDao {
                 ) AS INTEGER
             ) * 1000
         )
+
         GROUP BY c.id, c.nome, c.cor_hex
         ORDER BY total_centavos DESC
         """
@@ -118,6 +127,7 @@ interface DespesaDao {
         """
         SELECT COALESCE(SUM(valor), 0)
         FROM tb_despesas
+
         WHERE data_compra >= (
             CAST(
                 strftime(
@@ -146,6 +156,7 @@ interface DespesaDao {
         """
         SELECT COALESCE(SUM(valor), 0)
         FROM tb_despesas
+
         WHERE status_pago = 1
         AND data_compra >= (
             CAST(
@@ -175,6 +186,7 @@ interface DespesaDao {
         """
         SELECT COALESCE(SUM(valor), 0)
         FROM tb_despesas
+
         WHERE status_pago = 0
         AND data_compra >= (
             CAST(
@@ -202,10 +214,13 @@ interface DespesaDao {
 
     @Query(
         """
-        SELECT * FROM tb_despesas
+        SELECT *
+        FROM tb_despesas
+
         WHERE status_pago = 0
         AND data_vencimento >= :dataInicio
         AND data_vencimento <= :dataFim
+
         ORDER BY data_vencimento ASC
         """
     )
@@ -217,13 +232,29 @@ interface DespesaDao {
     @Query(
         """
         SELECT
-            CAST(strftime('%Y', data_vencimento / 1000, 'unixepoch') AS INTEGER) AS ano,
-            CAST(strftime('%m', data_vencimento / 1000, 'unixepoch') AS INTEGER) AS mes,
+            CAST(
+                strftime(
+                    '%Y',
+                    data_vencimento / 1000,
+                    'unixepoch'
+                ) AS INTEGER
+            ) AS ano,
+
+            CAST(
+                strftime(
+                    '%m',
+                    data_vencimento / 1000,
+                    'unixepoch'
+                ) AS INTEGER
+            ) AS mes,
+
             COALESCE(SUM(valor), 0) AS total_centavos
 
         FROM tb_despesas
+
         WHERE status_pago = 0
         AND data_vencimento >= :mesAnoInicio
+
         GROUP BY ano, mes
         ORDER BY ano ASC, mes ASC
         """
@@ -234,10 +265,13 @@ interface DespesaDao {
 
     @Query(
         """
-    SELECT * FROM tb_despesas
-    WHERE categoria_id = :categoriaId
-    ORDER BY data_vencimento ASC
-    """
+        SELECT *
+        FROM tb_despesas
+
+        WHERE categoria_id = :categoriaId
+
+        ORDER BY data_vencimento ASC
+        """
     )
     fun observarPorCategoria(
         categoriaId: Int
@@ -245,7 +279,9 @@ interface DespesaDao {
 
     @Query(
         """
-        SELECT COUNT(*) FROM tb_despesas
+        SELECT COUNT(*)
+        FROM tb_despesas
+
         WHERE grupo_parcelamento_id = :grupoParcelamentoId
         """
     )
@@ -255,32 +291,37 @@ interface DespesaDao {
 
     @Query(
         """
-    SELECT
-        d.id AS despesa_id,
-        d.valor AS despesa_valor,
-        d.descricao AS despesa_descricao,
-        d.data_compra AS despesa_data_compra,
-        d.data_vencimento AS despesa_data_vencimento,
-        d.data_pagamento AS despesa_data_pagamento,
-        d.status_pago AS despesa_status_pago,
-        d.categoria_id AS despesa_categoria_id,
-        d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
-        d.cartao_id AS despesa_cartao_id,
+        SELECT
+            d.id AS despesa_id,
+            d.valor AS despesa_valor,
+            d.descricao AS despesa_descricao,
+            d.data_compra AS despesa_data_compra,
+            d.data_vencimento AS despesa_data_vencimento,
+            d.data_pagamento AS despesa_data_pagamento,
+            d.status_pago AS despesa_status_pago,
+            d.categoria_id AS despesa_categoria_id,
+            d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+            d.cartao_id AS despesa_cartao_id,
+            d.conta_saldo_id AS despesa_conta_saldo_id,
+            d.tipo_lancamento AS despesa_tipo_lancamento,
+            d.origem_pagamento AS despesa_origem_pagamento,
 
-        c.id AS categoria_id,
-        c.nome AS categoria_nome,
-        c.cor_hex AS categoria_cor_hex,
-        c.teto_mensal AS categoria_teto_mensal,
-        c.icone_chave AS categoria_icone_chave,
-        c.ativa AS categoria_ativa
+            c.id AS categoria_id,
+            c.nome AS categoria_nome,
+            c.cor_hex AS categoria_cor_hex,
+            c.teto_mensal AS categoria_teto_mensal,
+            c.icone_chave AS categoria_icone_chave,
+            c.ativa AS categoria_ativa
 
-    FROM tb_despesas d
-    INNER JOIN tb_categorias c ON c.id = d.categoria_id
-    WHERE d.status_pago = 0
-    AND d.data_vencimento >= :dataInicio
-    AND d.data_vencimento <= :dataFim
-    ORDER BY d.data_vencimento ASC
-    """
+        FROM tb_despesas d
+        INNER JOIN tb_categorias c ON c.id = d.categoria_id
+
+        WHERE d.status_pago = 0
+        AND d.data_vencimento >= :dataInicio
+        AND d.data_vencimento <= :dataFim
+
+        ORDER BY d.data_vencimento ASC
+        """
     )
     fun observarPendenciasDetalhadas(
         dataInicio: Long,
@@ -289,31 +330,36 @@ interface DespesaDao {
 
     @Query(
         """
-    SELECT
-        d.id AS despesa_id,
-        d.valor AS despesa_valor,
-        d.descricao AS despesa_descricao,
-        d.data_compra AS despesa_data_compra,
-        d.data_vencimento AS despesa_data_vencimento,
-        d.data_pagamento AS despesa_data_pagamento,
-        d.status_pago AS despesa_status_pago,
-        d.categoria_id AS despesa_categoria_id,
-        d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
-        d.cartao_id AS despesa_cartao_id,
+        SELECT
+            d.id AS despesa_id,
+            d.valor AS despesa_valor,
+            d.descricao AS despesa_descricao,
+            d.data_compra AS despesa_data_compra,
+            d.data_vencimento AS despesa_data_vencimento,
+            d.data_pagamento AS despesa_data_pagamento,
+            d.status_pago AS despesa_status_pago,
+            d.categoria_id AS despesa_categoria_id,
+            d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+            d.cartao_id AS despesa_cartao_id,
+            d.conta_saldo_id AS despesa_conta_saldo_id,
+            d.tipo_lancamento AS despesa_tipo_lancamento,
+            d.origem_pagamento AS despesa_origem_pagamento,
 
-        c.id AS categoria_id,
-        c.nome AS categoria_nome,
-        c.cor_hex AS categoria_cor_hex,
-        c.teto_mensal AS categoria_teto_mensal,
-        c.icone_chave AS categoria_icone_chave,
-        c.ativa AS categoria_ativa
+            c.id AS categoria_id,
+            c.nome AS categoria_nome,
+            c.cor_hex AS categoria_cor_hex,
+            c.teto_mensal AS categoria_teto_mensal,
+            c.icone_chave AS categoria_icone_chave,
+            c.ativa AS categoria_ativa
 
-    FROM tb_despesas d
-    INNER JOIN tb_categorias c ON c.id = d.categoria_id
-    WHERE d.data_compra >= :inicio
-      AND d.data_compra < :fim
-    ORDER BY d.data_compra ASC
-    """
+        FROM tb_despesas d
+        INNER JOIN tb_categorias c ON c.id = d.categoria_id
+
+        WHERE d.data_compra >= :inicio
+        AND d.data_compra < :fim
+
+        ORDER BY d.data_compra ASC
+        """
     )
     fun observarDetalhadasEntre(
         inicio: LocalDate,
@@ -322,48 +368,83 @@ interface DespesaDao {
 
     @Query(
         """
-    SELECT
-        CAST(strftime('%Y', data_vencimento / 1000, 'unixepoch') AS INTEGER) AS ano,
-        CAST(strftime('%m', data_vencimento / 1000, 'unixepoch') AS INTEGER) AS mes,
-        COALESCE(SUM(valor), 0) AS total_centavos
-    FROM tb_despesas
-    WHERE status_pago = 0
-    GROUP BY ano, mes
-    ORDER BY ano ASC, mes ASC
-    """
+        SELECT
+            CAST(
+                strftime(
+                    '%Y',
+                    data_vencimento / 1000,
+                    'unixepoch'
+                ) AS INTEGER
+            ) AS ano,
+
+            CAST(
+                strftime(
+                    '%m',
+                    data_vencimento / 1000,
+                    'unixepoch'
+                ) AS INTEGER
+            ) AS mes,
+
+            COALESCE(SUM(valor), 0) AS total_centavos
+
+        FROM tb_despesas
+
+        WHERE status_pago = 0
+
+        GROUP BY ano, mes
+        ORDER BY ano ASC, mes ASC
+        """
     )
     fun observarFaturasAbertasPorMes(): Flow<List<FaturaMensalTuple>>
 
     @Query(
         """
-    SELECT
-        d.id AS despesa_id,
-        d.valor AS despesa_valor,
-        d.descricao AS despesa_descricao,
-        d.data_compra AS despesa_data_compra,
-        d.data_vencimento AS despesa_data_vencimento,
-        d.data_pagamento AS despesa_data_pagamento,
-        d.status_pago AS despesa_status_pago,
-        d.categoria_id AS despesa_categoria_id,
-        d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
-        d.cartao_id AS despesa_cartao_id,
-        c.id AS categoria_id,
-        c.nome AS categoria_nome,
-        c.cor_hex AS categoria_cor_hex,
-        c.teto_mensal AS categoria_teto_mensal,
-        c.icone_chave AS categoria_icone_chave,
-        c.ativa AS categoria_ativa
-    FROM tb_despesas d
-    INNER JOIN tb_categorias c ON c.id = d.categoria_id
-    WHERE d.status_pago = 0
-      AND d.data_vencimento >= (
-          CAST(strftime('%s', printf('%04d-%02d-01', :ano, :mes)) AS INTEGER) * 1000
-      )
-      AND d.data_vencimento < (
-          CAST(strftime('%s', printf('%04d-%02d-01', :ano, :mes), '+1 month') AS INTEGER) * 1000
-      )
-    ORDER BY d.data_compra ASC
-    """
+        SELECT
+            d.id AS despesa_id,
+            d.valor AS despesa_valor,
+            d.descricao AS despesa_descricao,
+            d.data_compra AS despesa_data_compra,
+            d.data_vencimento AS despesa_data_vencimento,
+            d.data_pagamento AS despesa_data_pagamento,
+            d.status_pago AS despesa_status_pago,
+            d.categoria_id AS despesa_categoria_id,
+            d.grupo_parcelamento_id AS despesa_grupo_parcelamento_id,
+            d.cartao_id AS despesa_cartao_id,
+            d.conta_saldo_id AS despesa_conta_saldo_id,
+            d.tipo_lancamento AS despesa_tipo_lancamento,
+            d.origem_pagamento AS despesa_origem_pagamento,
+
+            c.id AS categoria_id,
+            c.nome AS categoria_nome,
+            c.cor_hex AS categoria_cor_hex,
+            c.teto_mensal AS categoria_teto_mensal,
+            c.icone_chave AS categoria_icone_chave,
+            c.ativa AS categoria_ativa
+
+        FROM tb_despesas d
+        INNER JOIN tb_categorias c ON c.id = d.categoria_id
+
+        WHERE d.status_pago = 0
+        AND d.data_compra >= (
+            CAST(
+                strftime(
+                    '%s',
+                    printf('%04d-%02d-01', :ano, :mes)
+                ) AS INTEGER
+            ) * 1000
+        )
+        AND d.data_compra < (
+            CAST(
+                strftime(
+                    '%s',
+                    printf('%04d-%02d-01', :ano, :mes),
+                    '+1 month'
+                ) AS INTEGER
+            ) * 1000
+        )
+
+        ORDER BY d.data_compra ASC
+        """
     )
     fun observarDespesasDetalhadasDaFatura(
         mes: Int,
@@ -372,17 +453,84 @@ interface DespesaDao {
 
     @Query(
         """
-    UPDATE tb_despesas
-    SET
-        status_pago = 1,
-        data_pagamento = :dataPagamento
-    WHERE id = :despesaId
-    """
+        UPDATE tb_despesas
+        SET
+            status_pago = 1,
+            data_pagamento = :dataPagamento
+
+        WHERE id = :despesaId
+        """
     )
     suspend fun marcarComoPaga(
         despesaId: Int,
         dataPagamento: LocalDate
     ): Int
+
+    /*
+     * Estas duas consultas são usadas quando o usuário paga uma fatura.
+     *
+     * O intervalo recebido deve ser o ciclo da fatura:
+     *
+     * fechamento dia 29, fatura de agosto:
+     * início = 30/07
+     * fim exclusivo = 30/08
+     *
+     * Assim, uma compra de 29/08 entra em agosto e uma compra de
+     * 30/08 entra em setembro.
+     */
+    @Query(
+        """
+        SELECT COALESCE(SUM(valor), 0)
+        FROM tb_despesas
+
+        WHERE cartao_id = :cartaoId
+        AND status_pago = 0
+        AND data_compra >= :inicio
+        AND data_compra < :fim
+        """
+    )
+    suspend fun totalFaturaAberta(
+        cartaoId: Int,
+        inicio: LocalDate,
+        fim: LocalDate
+    ): Long
+
+    @Query(
+        """
+        UPDATE tb_despesas
+        SET
+            status_pago = 1,
+            data_pagamento = :dataPagamento
+
+        WHERE cartao_id = :cartaoId
+        AND status_pago = 0
+        AND data_compra >= :inicio
+        AND data_compra < :fim
+        """
+    )
+    suspend fun pagarFatura(
+        cartaoId: Int,
+        inicio: LocalDate,
+        fim: LocalDate,
+        dataPagamento: LocalDate
+    ): Int
+
+    @Query(
+        """
+        SELECT COALESCE(SUM(valor), 0)
+        FROM tb_despesas
+
+        WHERE conta_saldo_id = :contaId
+        AND cartao_id IS NULL
+        AND data_compra >= :inicio
+        AND data_compra < :fim
+        """
+    )
+    suspend fun totalDespesasDaContaNoMes(
+        contaId: Int,
+        inicio: LocalDate,
+        fim: LocalDate
+    ): Long
 
     @Query("SELECT * FROM tb_despesas ORDER BY id ASC")
     suspend fun buscarTodasParaBackup(): List<DespesaEntity>
@@ -401,8 +549,9 @@ interface DespesaDao {
     @Query(
         """
         DELETE FROM tb_despesas
+
         WHERE grupo_parcelamento_id = :grupoId
-          AND data_vencimento >= :dataInicial
+        AND data_vencimento >= :dataInicial
         """
     )
     suspend fun excluirParcelasDoGrupoAPartirDe(
@@ -410,9 +559,27 @@ interface DespesaDao {
         dataInicial: LocalDate
     ): Int
 
-    @Query("SELECT grupo_parcelamento_id FROM tb_despesas WHERE id = :despesaId LIMIT 1")
-    suspend fun buscarGrupoIdPorDespesa(despesaId: Int): Int?
+    @Query(
+        """
+        SELECT grupo_parcelamento_id
+        FROM tb_despesas
+        WHERE id = :despesaId
+        LIMIT 1
+        """
+    )
+    suspend fun buscarGrupoIdPorDespesa(
+        despesaId: Int
+    ): Int?
 
-    @Query("SELECT data_vencimento FROM tb_despesas WHERE id = :despesaId LIMIT 1")
-    suspend fun buscarDataVencimentoPorId(despesaId: Int): LocalDate?
+    @Query(
+        """
+        SELECT data_vencimento
+        FROM tb_despesas
+        WHERE id = :despesaId
+        LIMIT 1
+        """
+    )
+    suspend fun buscarDataVencimentoPorId(
+        despesaId: Int
+    ): LocalDate?
 }

@@ -499,7 +499,7 @@ private fun BarraNavegacaoInferior(
                         contentDescription = "Registros"
                     )
                 },
-                label = { Text("Registros") },
+                label = { Text("Transações") },
                 colors = coresItem
             )
             Spacer(modifier = Modifier.weight(1f))

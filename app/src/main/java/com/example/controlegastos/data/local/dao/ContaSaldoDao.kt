@@ -31,4 +31,7 @@ interface ContaSaldoDao {
 
     @Query("DELETE FROM tb_contas_saldo")
     suspend fun limparTodas()
+
+    @Query("UPDATE tb_contas_saldo SET saldo_centavos = :novoSaldo WHERE id = :contaId")
+    suspend fun atualizarSaldo(contaId: Int, novoSaldo: Long): Int
 }

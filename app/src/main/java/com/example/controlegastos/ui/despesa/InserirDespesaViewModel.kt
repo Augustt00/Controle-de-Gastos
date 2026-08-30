@@ -3,8 +3,11 @@ package com.example.controlegastos.ui.despesa
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.controlegastos.domain.model.NovaDespesaParcelada
+import com.example.controlegastos.domain.model.OrigemPagamento
+import com.example.controlegastos.domain.model.TipoContaSaldo
 import com.example.controlegastos.domain.model.TipoLancamento
 import com.example.controlegastos.domain.repository.CartaoRepository
+import com.example.controlegastos.domain.repository.ContaSaldoRepository
 import com.example.controlegastos.domain.usecase.BuscarCategoriasUseCase
 import com.example.controlegastos.domain.usecase.CalcularVencimentoCartaoUseCase
 import com.example.controlegastos.domain.usecase.CriarDespesaParceladaUseCase
@@ -24,7 +27,8 @@ class InserirDespesaViewModel @Inject constructor(
     buscarCategoriasUseCase: BuscarCategoriasUseCase,
     private val criarDespesaParceladaUseCase: CriarDespesaParceladaUseCase,
     private val cartaoRepository: CartaoRepository,
-    private val calcularVencimentoCartao: CalcularVencimentoCartaoUseCase
+    private val calcularVencimentoCartao: CalcularVencimentoCartaoUseCase,
+    private val contaSaldoRepository: ContaSaldoRepository
 ) : ViewModel() {
 
     private val formulario = MutableStateFlow(InserirDespesaUiState())
@@ -32,17 +36,22 @@ class InserirDespesaViewModel @Inject constructor(
     val uiState: StateFlow<InserirDespesaUiState> = combine(
         formulario,
         buscarCategoriasUseCase(somenteAtivas = true),
-        cartaoRepository.observarAtivos()
-    ) { estadoFormulario, categorias, cartoes ->
+        cartaoRepository.observarAtivos(),
+        contaSaldoRepository.observarTodas()
+    ) { estadoFormulario, categorias, cartoes, contasSaldo ->
         estadoFormulario.copy(
             categorias = categorias,
             cartoes = cartoes,
+            contasSaldo = contasSaldo.filter { it.ativo },
             carregandoCategorias = false,
             carregandoCartoes = false,
+            carregandoContasSaldo = false,
             categoriaSelecionada = estadoFormulario.categoriaSelecionada
                 ?.let { selecionada -> categorias.find { it.id == selecionada.id } },
             cartaoSelecionado = estadoFormulario.cartaoSelecionado
-                ?.let { selecionado -> cartoes.find { it.id == selecionado.id } }
+                ?.let { selecionado -> cartoes.find { it.id == selecionado.id } },
+            contaSaldoSelecionada = estadoFormulario.contaSaldoSelecionada
+                ?.let { selecionada -> contasSaldo.find { it.id == selecionada.id } }
         )
     }.stateIn(
         scope = viewModelScope,
@@ -81,6 +90,20 @@ class InserirDespesaViewModel @Inject constructor(
         val cartao = uiState.value.cartoes.firstOrNull { it.id == cartaoId }
         formulario.value = formulario.value.copy(
             cartaoSelecionado = cartao,
+            mensagemErro = null
+        )
+    }
+
+    fun selecionarContaSaldo(contaId: Int?) {
+        val conta = uiState.value.contasSaldo.firstOrNull { it.id == contaId }
+        formulario.value = formulario.value.copy(
+            contaSaldoSelecionada = conta,
+            origemPagamento = when (conta?.tipo) {
+                TipoContaSaldo.CARTEIRA -> OrigemPagamento.CARTEIRA
+                TipoContaSaldo.SALDO_RESERVADO -> OrigemPagamento.COFRE
+                null -> null
+                else -> OrigemPagamento.CONTA
+            },
             mensagemErro = null
         )
     }
@@ -148,6 +171,16 @@ class InserirDespesaViewModel @Inject constructor(
         }
 
         val cartao = estadoAtual.cartaoSelecionado
+
+        // Define as origens e destinos corretos baseados na presença do cartão ou conta selecionada
+        val (finalContaSaldoId, finalOrigemPagamento) = if (cartao != null) {
+            null to OrigemPagamento.CARTAO
+        } else if (estadoAtual.contaSaldoSelecionada != null) {
+            estadoAtual.contaSaldoSelecionada.id to estadoAtual.origemPagamento
+        } else {
+            null to null
+        }
+
         val dataPrimeiroVencimento = if (cartao != null) {
             calcularVencimentoCartao(
                 dataCompra = estadoAtual.dataCompra,
@@ -172,7 +205,7 @@ class InserirDespesaViewModel @Inject constructor(
                         quantidadeParcelas = when (estadoAtual.tipoLancamento) {
                             TipoLancamento.UNICA -> 1
                             TipoLancamento.PARCELADA -> estadoAtual.quantidadeParcelas
-                            TipoLancamento.FIXA -> 12
+                            TipoLancamento.FIXA -> estadoAtual.quantidadeMesesFixa
                         },
                         dataCompra = estadoAtual.dataCompra
                             .atStartOfDay(ZoneOffset.UTC)
@@ -184,7 +217,9 @@ class InserirDespesaViewModel @Inject constructor(
                             .toEpochMilli(),
                         categoriaId = categoria.id,
                         cartaoId = cartao?.id,
-                        tipoLancamento = estadoAtual.tipoLancamento
+                        contaSaldoId = finalContaSaldoId,
+                        tipoLancamento = estadoAtual.tipoLancamento,
+                        origemPagamento = finalOrigemPagamento
                     )
                 )
                 formulario.value = InserirDespesaUiState(

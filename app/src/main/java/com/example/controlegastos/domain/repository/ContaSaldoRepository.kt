@@ -7,4 +7,5 @@ interface ContaSaldoRepository {
     fun observarTodas(): Flow<List<ContaSaldo>>
     suspend fun salvar(conta: ContaSaldo): Int
     suspend fun atualizarAtivacao(contaId: Int, ativo: Boolean): Boolean
+    suspend fun atualizarSaldo(contaId: Int, novoSaldoCentavos: Long): Boolean
 }

@@ -34,6 +34,16 @@ class ContaSaldoRepositoryImpl @Inject constructor(
         return contaSaldoDao.atualizarAtivacao(contaId, ativo) > 0
     }
 
+    override suspend fun atualizarSaldo(
+        contaId: Int,
+        novoSaldoCentavos: Long
+    ): Boolean {
+        require(novoSaldoCentavos >= 0L) {
+            "O saldo não pode ficar negativo."
+        }
+        return contaSaldoDao.atualizarSaldo(contaId, novoSaldoCentavos) > 0
+    }
+
     private fun ContaSaldoEntity.toDomain() = ContaSaldo(
         id = id,
         nome = nome,

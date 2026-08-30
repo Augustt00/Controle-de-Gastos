@@ -10,5 +10,8 @@ data class Despesa(
     val statusPago: Boolean,
     val categoriaId: Int,
     val grupoParcelamentoId: Int?,
-    val cartaoId: Int? = null
+    val cartaoId: Int? = null,
+    val contaSaldoId: Int? = null,
+    val tipoLancamento: TipoLancamento = TipoLancamento.UNICA,
+    val origemPagamento: OrigemPagamento? = null
 )

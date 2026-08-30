@@ -1,13 +1,12 @@
 package com.example.controlegastos.domain.repository
 
 import com.example.controlegastos.domain.model.Despesa
-import com.example.controlegastos.domain.model.GrupoParcelamento
-import kotlinx.coroutines.flow.Flow
-import com.example.controlegastos.domain.model.GastoPorCategoria
 import com.example.controlegastos.domain.model.DespesaDetalhada
-import com.example.controlegastos.domain.model.ProjecaoMensal
 import com.example.controlegastos.domain.model.FaturaMensal
-
+import com.example.controlegastos.domain.model.GastoPorCategoria
+import com.example.controlegastos.domain.model.GrupoParcelamento
+import com.example.controlegastos.domain.model.ProjecaoMensal
+import kotlinx.coroutines.flow.Flow
 
 interface DespesaRepository {
 
@@ -32,6 +31,13 @@ interface DespesaRepository {
         ano: Int
     ): Flow<List<DespesaDetalhada>>
 
+
+
+    fun observarDetalhadasEntre(
+        inicioEpoch: Long,
+        fimEpoch: Long
+    ): Flow<List<DespesaDetalhada>>
+
     fun observarTotalGastoPorMes(
         mes: Int,
         ano: Int
@@ -47,7 +53,6 @@ interface DespesaRepository {
         ano: Int
     ): Flow<Long>
 
-
     fun observarTotalPendentePorMes(
         mes: Int,
         ano: Int
@@ -56,6 +61,11 @@ interface DespesaRepository {
     fun observarProjecaoFutura(
         inicioEpoch: Long
     ): Flow<List<ProjecaoMensal>>
+
+    fun observarPendenciasDetalhadas(
+        dataInicioEpoch: Long,
+        dataFimEpoch: Long
+    ): Flow<List<DespesaDetalhada>>
 
     suspend fun salvar(despesa: Despesa): Int
 
@@ -66,17 +76,29 @@ interface DespesaRepository {
         despesas: List<Despesa>
     ): Int
 
-    fun observarPendenciasDetalhadas(
-        dataInicioEpoch: Long,
-        dataFimEpoch: Long
-    ): Flow<List<DespesaDetalhada>>
-
     suspend fun marcarComoPaga(
         despesaId: Int,
         dataPagamentoEpoch: Long
     ): Boolean
 
-    suspend fun excluirPorId(despesaId: Int): Boolean
+    /*
+     * O mês recebido identifica a fatura exibida na tela.
+     *
+     * O repositório calcula o intervalo baseado no dia de fechamento
+     * do cartão, e não pelo mês de vencimento.
+     */
+    suspend fun pagarFatura(
+        cartaoId: Int,
+        mes: Int,
+        ano: Int,
+        contaId: Int
+    ): Boolean
 
-    suspend fun excluirDespesaEParcelasFuturas(despesaId: Int): Boolean
+    suspend fun excluirPorId(
+        despesaId: Int
+    ): Boolean
+
+    suspend fun excluirDespesaEParcelasFuturas(
+        despesaId: Int
+    ): Boolean
 }

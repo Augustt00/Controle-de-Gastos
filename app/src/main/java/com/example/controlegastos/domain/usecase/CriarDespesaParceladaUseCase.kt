@@ -117,7 +117,10 @@ class CriarDespesaParceladaUseCase @Inject constructor(
                 statusPago = false,
                 categoriaId = novaDespesa.categoriaId,
                 grupoParcelamentoId = null,
-                cartaoId = novaDespesa.cartaoId
+                cartaoId = novaDespesa.cartaoId,
+                contaSaldoId = novaDespesa.contaSaldoId,
+                tipoLancamento = novaDespesa.tipoLancamento,
+                origemPagamento = novaDespesa.origemPagamento
             )
         }
 
