@@ -80,4 +80,5 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.3.0")
     ksp("androidx.hilt:hilt-compiler:1.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+
 }

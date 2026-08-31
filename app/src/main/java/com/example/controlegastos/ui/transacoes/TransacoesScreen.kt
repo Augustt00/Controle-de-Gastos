@@ -5,35 +5,42 @@ package com.example.controlegastos.ui.transacoes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.ArrowBackIosNew
+import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.controlegastos.domain.model.ContaSaldo
@@ -69,11 +77,19 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
+private val CorFundoApp = Color(0xFFF3F7F2)
 private val CorPrincipal = Color(0xFF5F8D84)
 private val CorTexto = Color(0xFF123C3A)
 private val CorFundoSaldo = Color(0xFFE1EBE7)
 private val CorCard = Color(0xFFE6EFEA)
-private val CorDespesa = Color(0xFFD44D2A)
+
+// Cores do Card Principal
+private val CorCardSaldoDark = Color(0xFF0E3B36)
+private val CorCardSaldoAccent = Color(0xFF154C45)
+private val CorReceitaValor = Color(0xFF75E2A8)
+private val CorDespesaValor = Color(0xFFFF9E80)
+private val CorFundoIconeReceita = Color(0xFF1B4D3E)
+private val CorFundoIconeDespesa = Color(0xFF503431)
 
 @Composable
 fun TransacoesScreen(
@@ -101,37 +117,12 @@ fun TransacoesScreen(
     }
 
     Scaffold(
+        containerColor = CorFundoApp,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {
-                    Text(
-                        text = "Transações",
-                        color = CorTexto,
-                        fontWeight = FontWeight.Bold
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onVoltar) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Voltar",
-                            tint = CorTexto
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::alternarValores) {
-                        Icon(
-                            imageVector = if (uiState.valoresVisiveis) {
-                                Icons.Default.Visibility
-                            } else {
-                                Icons.Default.VisibilityOff
-                            },
-                            contentDescription = "Ocultar ou mostrar valores",
-                            tint = CorTexto
-                        )
-                    }
-                }
+            TopBarTransacoes(
+                onVoltar = onVoltar,
+                onToggleValores = viewModel::alternarValores,
+                valoresVisiveis = uiState.valoresVisiveis
             )
         },
         snackbarHost = {
@@ -286,38 +277,96 @@ fun TransacoesScreen(
 }
 
 @Composable
+private fun TopBarTransacoes(
+    onVoltar: () -> Unit,
+    onToggleValores: () -> Unit,
+    valoresVisiveis: Boolean
+) {
+    Surface(
+        color = CorCardSaldoDark,
+        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .statusBarsPadding()
+                .height(80.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            IconButton(onClick = onVoltar) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Voltar",
+                    tint = Color.White
+                )
+            }
+
+            Text(
+                text = "Transações",
+                color = Color.White,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            IconButton(onClick = onToggleValores) {
+                Icon(
+                    imageVector = if (valoresVisiveis) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = "Ocultar ou mostrar valores",
+                    tint = Color.White
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun SeletorMes(
     mes: YearMonth,
     onAnterior: () -> Unit,
     onProximo: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onAnterior) {
+        IconButton(
+            onClick = onAnterior,
+            modifier = Modifier.size(36.dp)
+        ) {
             Icon(
                 imageVector = Icons.Default.ArrowBackIosNew,
                 contentDescription = "Mês anterior",
                 tint = CorTexto,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
+
+        Spacer(modifier = Modifier.width(8.dp))
 
         Text(
             text = mes.formatarMes(),
             color = CorTexto,
-            style = MaterialTheme.typography.titleLarge,
+            style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold
         )
 
-        IconButton(onClick = onProximo) {
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            onClick = onProximo,
+            modifier = Modifier.size(36.dp)
+        ) {
             Icon(
                 imageVector = Icons.Default.ArrowForwardIos,
                 contentDescription = "Próximo mês",
                 tint = CorTexto,
-                modifier = Modifier.size(22.dp)
+                modifier = Modifier.size(16.dp)
             )
         }
     }
@@ -332,50 +381,136 @@ private fun CardSaldoPrincipal(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = CorFundoSaldo)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CorCardSaldoDark),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp)
         ) {
-            Text(
-                text = "Saldo total",
-                color = CorTexto,
-                style = MaterialTheme.typography.titleMedium
+            // Círculos decorativos
+            Box(
+                modifier = Modifier
+                    .size(130.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 24.dp, y = (-40).dp)
+                    .background(CorCardSaldoAccent.copy(alpha = 0.18f), shape = CircleShape)
+                    .zIndex(0f)
+            )
+            Box(
+                modifier = Modifier
+                    .size(70.dp)
+                    .align(Alignment.TopEnd)
+                    .offset(x = 64.dp, y = (-8).dp)
+                    .background(Color.White.copy(alpha = 0.03f), shape = CircleShape)
+                    .zIndex(0f)
             )
 
-            Text(
-                text = saldoAtual.formatarMoeda(visivel),
-                color = CorPrincipal,
-                style = MaterialTheme.typography.displaySmall,
-                fontWeight = FontWeight.Bold
-            )
-
-            HorizontalDivider(color = CorPrincipal.copy(alpha = 0.18f))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.TopStart)
+                    .zIndex(1f)
             ) {
-                Text("Saldo positivo", color = CorTexto)
                 Text(
-                    text = saldoInicial.formatarMoeda(visivel),
-                    color = CorTexto,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Saldo disponível",
+                    color = Color.White.copy(alpha = 0.9f),
+                    style = MaterialTheme.typography.bodyMedium
                 )
-            }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Despesas", color = CorTexto)
+                Spacer(modifier = Modifier.height(6.dp))
+
                 Text(
-                    text = despesas.formatarMoeda(visivel),
-                    color = CorDespesa,
-                    fontWeight = FontWeight.SemiBold
+                    text = saldoAtual.formatarMoeda(visivel),
+                    color = Color.White,
+                    style = MaterialTheme.typography.headlineLarge,
+                    fontWeight = FontWeight.Bold
                 )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Bloco Receitas
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = CorFundoIconeReceita
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowUpward,
+                                    contentDescription = null,
+                                    tint = CorReceitaValor,
+                                    modifier = Modifier
+                                        .padding(4.dp)
+                                        .size(16.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Receitas",
+                                color = Color.White.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = saldoInicial.formatarMoeda(visivel),
+                            color = CorReceitaValor,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+
+                    // Divisor Vertical
+                    Box(
+                        modifier = Modifier
+                            .height(44.dp)
+                            .width(1.dp)
+                            .background(Color.White.copy(alpha = 0.15f))
+                    )
+
+                    // Bloco Despesas
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 16.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = CorFundoIconeDespesa
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDownward,
+                                    contentDescription = null,
+                                    tint = CorDespesaValor,
+                                    modifier = Modifier
+                                        .padding(4.dp)
+                                        .size(16.dp)
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = "Despesas",
+                                color = Color.White.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = despesas.formatarMoeda(visivel),
+                            color = CorDespesaValor,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
             }
         }
     }
@@ -398,23 +533,31 @@ private fun CardConta(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = CorCard)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountBalance,
-                contentDescription = null,
-                tint = CorPrincipal,
-                modifier = Modifier.size(28.dp)
-            )
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = RoundedCornerShape(10.dp),
+                color = CorFundoSaldo
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalance,
+                        contentDescription = null,
+                        tint = CorPrincipal,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
 
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
 
             Column(Modifier.weight(1f)) {
                 Text(
@@ -425,7 +568,7 @@ private fun CardConta(
                 Text(
                     text = conta.tipo.name.replace("_", " "),
                     color = CorTexto.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
 
@@ -444,43 +587,44 @@ private fun AbasFaturas(
     onSelecionar: (AbaFaturas) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        AbaFatura(
-            texto = "Faturas abertas",
-            selecionada = selecionada == AbaFaturas.ABERTAS,
-            modifier = Modifier.weight(1f),
-            onClick = { onSelecionar(AbaFaturas.ABERTAS) }
-        )
+        val pillModifier = Modifier
+            .weight(1f)
+            .height(40.dp)
 
-        AbaFatura(
-            texto = "Faturas fechadas",
-            selecionada = selecionada == AbaFaturas.FECHADAS,
-            modifier = Modifier.weight(1f),
-            onClick = { onSelecionar(AbaFaturas.FECHADAS) }
-        )
-    }
-}
+        Surface(
+            modifier = pillModifier.clickable { onSelecionar(AbaFaturas.ABERTAS) },
+            shape = RoundedCornerShape(50),
+            color = if (selecionada == AbaFaturas.ABERTAS) CorPrincipal else CorCard
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Faturas abertas",
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    color = if (selecionada == AbaFaturas.ABERTAS) Color.White else CorTexto,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
 
-@Composable
-private fun AbaFatura(
-    texto: String,
-    selecionada: Boolean,
-    modifier: Modifier,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(50),
-        color = if (selecionada) CorPrincipal else CorCard
-    ) {
-        Text(
-            text = texto,
-            modifier = Modifier.padding(vertical = 12.dp, horizontal = 8.dp),
-            color = if (selecionada) Color.White else CorTexto,
-            fontWeight = FontWeight.SemiBold
-        )
+        Surface(
+            modifier = pillModifier.clickable { onSelecionar(AbaFaturas.FECHADAS) },
+            shape = RoundedCornerShape(50),
+            color = if (selecionada == AbaFaturas.FECHADAS) CorPrincipal else CorCard
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Text(
+                    text = "Faturas fechadas",
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    color = if (selecionada == AbaFaturas.FECHADAS) Color.White else CorTexto,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
     }
 }
 
@@ -494,12 +638,12 @@ private fun CardTotalFaturas(
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CorFundoSaldo),
-        shape = RoundedCornerShape(15.dp)
+        shape = RoundedCornerShape(14.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(18.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -767,6 +911,7 @@ private fun DialogoPagamento(
         ?: false
 
     AlertDialog(
+        containerColor = CorFundoApp,
         onDismissRequest = onCancelar,
         title = {
             Text("Pagar fatura", color = CorTexto, fontWeight = FontWeight.Bold)
@@ -843,7 +988,7 @@ private fun DialogoPagamento(
                 onClick = onConfirmar,
                 enabled = !processando && saldoSuficiente
             ) {
-                Text(if (processando) "Pagando..." else "Confirmar")
+                Text(if (processando) "Pagando..." else "Confirmar", color = CorPrincipal)
             }
         },
         dismissButton = {
@@ -851,7 +996,7 @@ private fun DialogoPagamento(
                 onClick = onCancelar,
                 enabled = !processando
             ) {
-                Text("Cancelar")
+                Text("Cancelar", color = CorPrincipal)
             }
         }
     )

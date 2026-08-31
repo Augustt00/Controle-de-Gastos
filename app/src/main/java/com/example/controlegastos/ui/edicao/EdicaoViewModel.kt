@@ -116,6 +116,20 @@ class EdicaoViewModel @Inject constructor(
         }
     }
 
+    fun excluirCategoria(categoriaId: Int) {
+        viewModelScope.launch {
+            runCatching {
+                categoriaRepository.excluir(categoriaId)
+            }.onSuccess {
+                formulario.value = formulario.value.copy(mensagem = "Categoria removida.")
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message ?: "Não foi possível remover a categoria."
+                )
+            }
+        }
+    }
+
     fun alterarAtivacaoCartao(instituicao: InstituicaoPredefinida, ativo: Boolean) {
         val cartaoExistente = uiState.value.cartoes.firstOrNull {
             it.marcaChave == instituicao.chave
@@ -214,6 +228,16 @@ class EdicaoViewModel @Inject constructor(
             diaVencimentoTexto = vencimento.filter(Char::isDigit)
         )
     }
+
+    fun atualizarIconeCategoria(iconeChave: String) {
+        // atualiza o estado do formulário
+        formulario.value = formulario.value.copy(
+            novoIconeCategoria = iconeChave,
+            mensagem = null
+        )
+    }
+
+
 
     fun salvarConfiguracaoCartao() {
         val estado = formulario.value
