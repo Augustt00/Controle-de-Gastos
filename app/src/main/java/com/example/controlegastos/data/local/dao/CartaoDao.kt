@@ -14,7 +14,9 @@ interface CartaoDao {
     @Query("SELECT * FROM tb_cartoes ORDER BY nome COLLATE NOCASE ASC")
     fun observarTodos(): Flow<List<CartaoEntity>>
 
-    @Query("SELECT * FROM tb_cartoes WHERE ativo = 1 ORDER BY nome COLLATE NOCASE ASC")
+    @Query(
+        "SELECT * FROM tb_cartoes WHERE ativo = 1 ORDER BY nome COLLATE NOCASE ASC"
+    )
     fun observarAtivos(): Flow<List<CartaoEntity>>
 
     @Query("SELECT * FROM tb_cartoes WHERE marca_chave = :marcaChave LIMIT 1")
@@ -43,7 +45,13 @@ interface CartaoDao {
     ): Int
 
     @Query("UPDATE tb_cartoes SET ativo = :ativo WHERE id = :cartaoId")
-    suspend fun atualizarAtivacao(cartaoId: Int, ativo: Boolean): Int
+    suspend fun atualizarAtivacao(
+        cartaoId: Int,
+        ativo: Boolean
+    ): Int
+
+    @Query("DELETE FROM tb_cartoes WHERE id = :cartaoId")
+    suspend fun excluirPorId(cartaoId: Int): Int
 
     @Query("SELECT * FROM tb_cartoes ORDER BY id ASC")
     suspend fun buscarTodosParaBackup(): List<CartaoEntity>

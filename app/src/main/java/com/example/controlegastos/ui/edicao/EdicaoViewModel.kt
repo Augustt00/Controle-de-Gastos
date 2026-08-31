@@ -68,17 +68,28 @@ class EdicaoViewModel @Inject constructor(
         )
     }
 
+    fun atualizarIconeCategoria(iconeChave: String) {
+        formulario.value = formulario.value.copy(
+            novoIconeCategoria = iconeChave,
+            mensagem = null
+        )
+    }
+
     fun salvarCategoria() {
         val estado = formulario.value
         val nome = estado.novaCategoriaNome.trim()
 
         if (nome.isBlank()) {
-            formulario.value = estado.copy(mensagem = "Informe o nome da categoria.")
+            formulario.value = estado.copy(
+                mensagem = "Informe o nome da categoria."
+            )
             return
         }
 
         if (estado.categorias.any { it.nome.equals(nome, ignoreCase = true) }) {
-            formulario.value = estado.copy(mensagem = "Essa categoria já está cadastrada.")
+            formulario.value = estado.copy(
+                mensagem = "Essa categoria já está cadastrada."
+            )
             return
         }
 
@@ -102,9 +113,10 @@ class EdicaoViewModel @Inject constructor(
                     tipoContaSelecionado = estado.tipoContaSelecionado,
                     mensagem = "Categoria adicionada."
                 )
-            }.onFailure {
+            }.onFailure { erro ->
                 formulario.value = estado.copy(
-                    mensagem = it.message ?: "Não foi possível salvar a categoria."
+                    mensagem = erro.message
+                        ?: "Não foi possível salvar a categoria."
                 )
             }
         }
@@ -112,7 +124,14 @@ class EdicaoViewModel @Inject constructor(
 
     fun alterarAtivacaoCategoria(categoria: Categoria, ativa: Boolean) {
         viewModelScope.launch {
-            categoriaRepository.atualizarAtivacao(categoria.id, ativa)
+            runCatching {
+                categoriaRepository.atualizarAtivacao(categoria.id, ativa)
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível atualizar a categoria."
+                )
+            }
         }
     }
 
@@ -121,96 +140,147 @@ class EdicaoViewModel @Inject constructor(
             runCatching {
                 categoriaRepository.excluir(categoriaId)
             }.onSuccess {
-                formulario.value = formulario.value.copy(mensagem = "Categoria removida.")
+                formulario.value = formulario.value.copy(
+                    mensagem = "Categoria removida."
+                )
             }.onFailure { erro ->
                 formulario.value = formulario.value.copy(
-                    mensagem = erro.message ?: "Não foi possível remover a categoria."
+                    mensagem = erro.message
+                        ?: "Não foi possível remover a categoria."
                 )
             }
         }
     }
 
-    fun alterarAtivacaoCartao(instituicao: InstituicaoPredefinida, ativo: Boolean) {
+    fun alterarAtivacaoCartao(
+        instituicao: InstituicaoPredefinida,
+        ativo: Boolean
+    ) {
         val cartaoExistente = uiState.value.cartoes.firstOrNull {
             it.marcaChave == instituicao.chave
         }
 
         viewModelScope.launch {
-            if (cartaoExistente == null) {
-                cartaoRepository.salvarOuAtualizarPorMarca(
-                    Cartao(
-                        nome = instituicao.nome,
-                        marcaChave = instituicao.chave,
-                        corHex = instituicao.cor.toHex(),
-                        ativo = ativo,
-                        diaFechamento = instituicao.diaFechamentoPadrao,
-                        diaVencimento = instituicao.diaVencimentoPadrao
+            runCatching {
+                if (cartaoExistente == null) {
+                    cartaoRepository.salvarOuAtualizarPorMarca(
+                        Cartao(
+                            nome = instituicao.nome,
+                            marcaChave = instituicao.chave,
+                            corHex = instituicao.cor.toHex(),
+                            ativo = ativo,
+                            diaFechamento = instituicao.diaFechamentoPadrao,
+                            diaVencimento = instituicao.diaVencimentoPadrao
+                        )
                     )
+                } else {
+                    cartaoRepository.atualizarAtivacao(
+                        cartaoId = cartaoExistente.id,
+                        ativo = ativo
+                    )
+                }
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível atualizar o cartão."
                 )
-            } else {
-                cartaoRepository.atualizarAtivacao(cartaoExistente.id, ativo)
             }
         }
     }
 
-    fun selecionarInstituicao(instituicao: InstituicaoPredefinida) {
-        formulario.value = formulario.value.copy(instituicaoSelecionada = instituicao)
-    }
+    fun adicionarCartao(
+        instituicaoChave: String,
+        nome: String,
+        diaFechamento: Int,
+        diaVencimento: Int,
+        limiteCentavos: Long
+    ) {
+        val instituicao = instituicoesPredefinidas.firstOrNull {
+            it.chave == instituicaoChave
+        }
 
-    fun selecionarTipoConta(tipo: TipoContaSaldo) {
-        formulario.value = formulario.value.copy(tipoContaSelecionado = tipo)
-    }
+        if (instituicao == null) {
+            formulario.value = formulario.value.copy(
+                mensagem = "Instituição do cartão não encontrada."
+            )
+            return
+        }
 
-    fun atualizarSaldoInicial(texto: String) {
-        formulario.value = formulario.value.copy(
-            saldoInicialTexto = texto.filter(Char::isDigit),
-            mensagem = null
-        )
-    }
+        if (diaFechamento !in 1..31 || diaVencimento !in 1..31) {
+            formulario.value = formulario.value.copy(
+                mensagem = "Informe fechamento e vencimento entre 1 e 31."
+            )
+            return
+        }
 
-    fun salvarContaSaldo() {
-        val estado = formulario.value
-        val saldo = estado.saldoInicialTexto.toLongOrNull()
-
-        if (saldo == null || saldo < 0L) {
-            formulario.value = estado.copy(mensagem = "Informe um saldo inicial válido.")
+        if (limiteCentavos < 0L) {
+            formulario.value = formulario.value.copy(
+                mensagem = "Informe um limite válido."
+            )
             return
         }
 
         viewModelScope.launch {
             runCatching {
-                val instituicao = estado.instituicaoSelecionada
-                contaSaldoRepository.salvar(
-                    ContaSaldo(
-                        nome = when (estado.tipoContaSelecionado) {
-                            TipoContaSaldo.CONTA -> instituicao.nome
-                            TipoContaSaldo.CARTEIRA -> "Carteira"
-                            TipoContaSaldo.SALDO_RESERVADO -> "Saldo reservado ${instituicao.nome}"
-                        },
-                        instituicaoChave = instituicao.chave,
-                        tipo = estado.tipoContaSelecionado,
-                        saldoCentavos = saldo,
+                /*
+                 * O modelo Cartao atual não possui limiteCentavos.
+                 * O valor é validado e recebido da tela, mas ainda não é
+                 * persistido até você incluir esse campo no model, entity,
+                 * tabela Room, DAO e repository.
+                 */
+                cartaoRepository.salvarOuAtualizarPorMarca(
+                    Cartao(
+                        nome = nome,
+                        marcaChave = instituicao.chave,
                         corHex = instituicao.cor.toHex(),
-                        ativo = true
+                        ativo = true,
+                        diaFechamento = diaFechamento,
+                        diaVencimento = diaVencimento
                     )
                 )
             }.onSuccess {
-                formulario.value = EdicaoUiState(
-                    instituicaoSelecionada = estado.instituicaoSelecionada,
-                    tipoContaSelecionado = estado.tipoContaSelecionado,
-                    mensagem = "Conta adicionada."
+                formulario.value = formulario.value.copy(
+                    mensagem = "Cartão adicionado."
                 )
-            }.onFailure {
-                formulario.value = estado.copy(
-                    mensagem = it.message ?: "Não foi possível salvar a conta."
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível adicionar o cartão."
                 )
             }
         }
     }
 
-    fun alterarAtivacaoConta(conta: ContaSaldo, ativo: Boolean) {
+    fun atualizarAtivacaoCartaoPorId(cartaoId: Int, ativo: Boolean) {
         viewModelScope.launch {
-            contaSaldoRepository.atualizarAtivacao(conta.id, ativo)
+            runCatching {
+                cartaoRepository.atualizarAtivacao(
+                    cartaoId = cartaoId,
+                    ativo = ativo
+                )
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível atualizar o cartão."
+                )
+            }
+        }
+    }
+
+    fun excluirCartao(cartaoId: Int) {
+        viewModelScope.launch {
+            runCatching {
+                cartaoRepository.excluir(cartaoId)
+            }.onSuccess {
+                formulario.value = formulario.value.copy(
+                    mensagem = "Cartão removido."
+                )
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível remover o cartão."
+                )
+            }
         }
     }
 
@@ -218,39 +288,30 @@ class EdicaoViewModel @Inject constructor(
         formulario.value = formulario.value.copy(
             cartaoEmEdicao = cartao,
             diaFechamentoTexto = cartao.diaFechamento.toString(),
-            diaVencimentoTexto = cartao.diaVencimento.toString()
+            diaVencimentoTexto = cartao.diaVencimento.toString(),
+            mensagem = null
         )
     }
 
     fun atualizarDiasCartao(fechamento: String, vencimento: String) {
         formulario.value = formulario.value.copy(
             diaFechamentoTexto = fechamento.filter(Char::isDigit),
-            diaVencimentoTexto = vencimento.filter(Char::isDigit)
-        )
-    }
-
-    fun atualizarIconeCategoria(iconeChave: String) {
-        // atualiza o estado do formulário
-        formulario.value = formulario.value.copy(
-            novoIconeCategoria = iconeChave,
+            diaVencimentoTexto = vencimento.filter(Char::isDigit),
             mensagem = null
         )
     }
 
-
-
     fun salvarConfiguracaoCartao() {
         val estado = formulario.value
         val cartao = estado.cartaoEmEdicao ?: return
+        val fechamento = estado.diaFechamentoTexto.toIntOrNull()
+        val vencimento = estado.diaVencimentoTexto.toIntOrNull()
 
-        val fechamento = estado.diaFechamentoTexto
-            .toIntOrNull()
-
-        val vencimento = estado.diaVencimentoTexto
-            .toIntOrNull()
-
-        if (fechamento == null || vencimento == null ||
-            fechamento !in 1..31 || vencimento !in 1..31
+        if (
+            fechamento == null ||
+            vencimento == null ||
+            fechamento !in 1..31 ||
+            vencimento !in 1..31
         ) {
             formulario.value = estado.copy(
                 mensagem = "Informe fechamento e vencimento entre 1 e 31."
@@ -267,14 +328,95 @@ class EdicaoViewModel @Inject constructor(
                     diaVencimento = vencimento
                 )
             }.onSuccess {
-                formulario.value = estado.copy(
+                formulario.value = formulario.value.copy(
                     cartaoEmEdicao = null,
+                    diaFechamentoTexto = "",
+                    diaVencimentoTexto = "",
                     mensagem = "Configuração do cartão salva."
                 )
             }.onFailure { erro ->
                 formulario.value = estado.copy(
                     mensagem = erro.message
                         ?: "Não foi possível salvar o cartão."
+                )
+            }
+        }
+    }
+
+    fun selecionarInstituicao(instituicao: InstituicaoPredefinida) {
+        formulario.value = formulario.value.copy(
+            instituicaoSelecionada = instituicao,
+            mensagem = null
+        )
+    }
+
+    fun selecionarTipoConta(tipo: TipoContaSaldo) {
+        formulario.value = formulario.value.copy(
+            tipoContaSelecionado = tipo,
+            mensagem = null
+        )
+    }
+
+    fun atualizarSaldoInicial(texto: String) {
+        formulario.value = formulario.value.copy(
+            saldoInicialTexto = texto.filter(Char::isDigit),
+            mensagem = null
+        )
+    }
+
+    fun salvarContaSaldo() {
+        val estado = formulario.value
+        val saldo = estado.saldoInicialTexto.toLongOrNull()
+
+        if (saldo == null || saldo < 0L) {
+            formulario.value = estado.copy(
+                mensagem = "Informe um saldo inicial válido."
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            runCatching {
+                val instituicao = estado.instituicaoSelecionada
+                contaSaldoRepository.salvar(
+                    ContaSaldo(
+                        nome = when (estado.tipoContaSelecionado) {
+                            TipoContaSaldo.CONTA -> instituicao.nome
+                            TipoContaSaldo.CARTEIRA -> "Carteira"
+                            TipoContaSaldo.SALDO_RESERVADO -> {
+                                "Saldo reservado ${instituicao.nome}"
+                            }
+                        },
+                        instituicaoChave = instituicao.chave,
+                        tipo = estado.tipoContaSelecionado,
+                        saldoCentavos = saldo,
+                        corHex = instituicao.cor.toHex(),
+                        ativo = true
+                    )
+                )
+            }.onSuccess {
+                formulario.value = EdicaoUiState(
+                    instituicaoSelecionada = estado.instituicaoSelecionada,
+                    tipoContaSelecionado = estado.tipoContaSelecionado,
+                    mensagem = "Conta adicionada."
+                )
+            }.onFailure { erro ->
+                formulario.value = estado.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível salvar a conta."
+                )
+            }
+        }
+    }
+
+    fun alterarAtivacaoConta(conta: ContaSaldo, ativo: Boolean) {
+        viewModelScope.launch {
+            runCatching {
+                contaSaldoRepository.atualizarAtivacao(conta.id, ativo)
+            }.onFailure { erro ->
+                formulario.value = formulario.value.copy(
+                    mensagem = erro.message
+                        ?: "Não foi possível atualizar a conta."
                 )
             }
         }

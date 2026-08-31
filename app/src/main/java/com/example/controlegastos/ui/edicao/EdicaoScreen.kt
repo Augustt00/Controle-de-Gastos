@@ -1,6 +1,7 @@
 @file:OptIn(
     androidx.compose.material3.ExperimentalMaterial3Api::class,
-    androidx.compose.foundation.layout.ExperimentalLayoutApi::class
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class
 )
 
 package com.example.controlegastos.ui.edicao
@@ -11,6 +12,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
@@ -46,11 +49,14 @@ import androidx.compose.material.icons.filled.Celebration
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.DirectionsCar
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pets
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.School
@@ -59,15 +65,18 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material.icons.filled.Subscriptions
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -89,6 +98,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.PaintingStyle
@@ -100,16 +111,13 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.unit.sp
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.controlegastos.R
 import com.example.controlegastos.domain.model.Categoria
 import com.example.controlegastos.domain.model.ContaSaldo
 import com.example.controlegastos.domain.model.TipoContaSaldo
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.unit.sp
 
 // ====== CORES / CONSTANTES DE ESTILO (ajuste HEX se quiser 1:1) ======
 private val CorEdicao = Color(0xFF2F6F62) // verde principal
@@ -193,15 +201,33 @@ fun EdicaoScreen(
                                 },
                                 onRemoverCategoria = { categoria ->
                                     viewModel.excluirCategoria(categoria.id)
-                                },
-                                onSelecionarEmoji = { chaveOrEmoji ->
-                                    viewModel.atualizarIconeCategoria(chaveOrEmoji)
-                                }
+                                }, // <--- CORREÇÃO APLICADA
+                                onSelecionarEmoji = viewModel::atualizarIconeCategoria
                             )
                         }
                     }
-
                     1 -> {
+                        val cartoesAtivos = uiState.cartoes.filter { it.ativo }
+                        val cartoesInativos = uiState.cartoes.filter { !it.ativo }
+                        val sampleTotals = mapOf(
+                            "nubank" to Pair(800_000L, 324_000L),
+                            "c6" to Pair(500_000L, 187_000L),
+                            "itau" to Pair(600_000L, 120_000L),
+                            "picpay" to Pair(200_000L, 50_000L),
+                            "mercado_pago" to Pair(400_000L, 90_000L),
+                            "bradesco" to Pair(300_000L, 0L),
+                            "bank" to Pair(250_000L, 0L)
+                        )
+
+                        fun alterarAtivacaoPorCartao(
+                            cartao: com.example.controlegastos.domain.model.Cartao,
+                            ativo: Boolean
+                        ) {
+                            instituicoesPredefinidas
+                                .firstOrNull { it.chave == cartao.marcaChave }
+                                ?.let { viewModel.alterarAtivacaoCartao(it, ativo) }
+                        }
+
                         item {
                             CabecalhoSecao(
                                 titulo = "Cartões",
@@ -209,36 +235,60 @@ fun EdicaoScreen(
                             )
                         }
 
-                        instituicoesPredefinidas.forEach { instituicao ->
-                            item(key = instituicao.chave) {
-                                val cartao = uiState.cartoes.firstOrNull {
-                                    it.marcaChave == instituicao.chave
-                                }
-                                LinhaCartaoPredefinido(
-                                    instituicao = instituicao,
+                        item {
+                            ResumoCartoesCard(
+                                limiteDisponivelCentavos = 0L,
+                                totalLimiteCentavos = 0L,
+                                ativos = cartoesAtivos.size
+                            )
+                        }
+
+                        cartoesAtivos.forEach { cartao ->
+                            item(key = "ativo_${cartao.id}") {
+                                val (limiteCentavos, usadoCentavos) =
+                                    sampleTotals[cartao.marcaChave] ?: (0L to 0L)
+                                CartaoDetalhado(
                                     cartao = cartao,
-                                    ativo = cartao?.ativo == true,
-                                    onAtivacaoAlterada = { ativo ->
-                                        viewModel.alterarAtivacaoCartao(instituicao, ativo)
+                                    disponivelCentavos = (limiteCentavos - usadoCentavos).coerceAtLeast(0L),
+                                    usadoCentavos = usadoCentavos,
+                                    limiteCentavos = limiteCentavos,
+                                    ativo = true,
+                                    onAtivacaoAlterada = { novo ->
+                                        alterarAtivacaoPorCartao(cartao, novo)
                                     },
-                                    onEditar = { cartaoExistente ->
-                                        viewModel.editarConfiguracaoCartao(cartaoExistente)
+                                    onSalvarDatas = { fechamento, vencimento ->
+                                        viewModel.editarConfiguracaoCartao(cartao)
+                                        viewModel.atualizarDiasCartao(
+                                            fechamento.toString(),
+                                            vencimento.toString()
+                                        )
+                                        viewModel.salvarConfiguracaoCartao()
                                     }
                                 )
                             }
+                        }
 
-                            if (uiState.cartaoEmEdicao?.marcaChave == instituicao.chave) {
-                                item(key = "${instituicao.chave}_editor") {
-                                    EditorDatasCartao(
-                                        uiState = uiState,
-                                        onDiasAlterados = viewModel::atualizarDiasCartao,
-                                        onSalvar = viewModel::salvarConfiguracaoCartao
+                        item {
+                            InativasSectionCartoes(
+                                cartoesInativos = cartoesInativos,
+                                onAtivarCartao = { id, ativo ->
+                                    uiState.cartoes
+                                        .firstOrNull { it.id == id }
+                                        ?.let { alterarAtivacaoPorCartao(it, ativo) }
+                                },
+                                onExcluirCartao = viewModel::excluirCartao,
+                                onAdicionarCartao = { instituicao, fechamento, vencimento, limiteCentavos ->
+                                    viewModel.adicionarCartao(
+                                        instituicaoChave = instituicao.chave,
+                                        nome = instituicao.nome,
+                                        diaFechamento = fechamento,
+                                        diaVencimento = vencimento,
+                                        limiteCentavos = limiteCentavos
                                     )
                                 }
-                            }
+                            )
                         }
                     }
-
                     2 -> {
                         item {
                             CabecalhoSecao(
@@ -260,13 +310,389 @@ fun EdicaoScreen(
                         items(uiState.contas, key = { it.id }) { conta ->
                             LinhaContaSaldo(
                                 conta = conta,
-                                onAtivacaoAlterada = { ativa -> viewModel.alterarAtivacaoConta(conta, ativa) }
+                                onAtivacaoAlterada = { ativa ->
+                                    viewModel.alterarAtivacaoConta(conta, ativa)
+                                }
                             )
                         }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+fun InativasSectionCartoes(
+    cartoesInativos: List<com.example.controlegastos.domain.model.Cartao>,
+    onAtivarCartao: (Int, Boolean) -> Unit,
+    onExcluirCartao: (Int) -> Unit,
+    onAdicionarCartao: (InstituicaoPredefinida, Int, Int, Long) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var dialogCartaoSelecionado by remember {
+        mutableStateOf<com.example.controlegastos.domain.model.Cartao?>(null)
+    }
+    var mostrarNovoCartao by remember { mutableStateOf(false) }
+    val cor = Color(0xFF7B8C86)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("DESATIVADOS", color = cor, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.width(6.dp))
+            Text("•", color = cor, fontSize = 10.sp)
+            Spacer(Modifier.width(6.dp))
+            Text(cartoesInativos.size.toString(), color = cor)
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                contentDescription = if (expanded) "Recolher" else "Expandir",
+                tint = cor,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        if (expanded) {
+            Spacer(Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                cartoesInativos.forEach { cartao ->
+                    CartaoInativoRow(
+                        cartao = cartao,
+                        onAtivar = { onAtivarCartao(cartao.id, it) },
+                        onLongDelete = { dialogCartaoSelecionado = cartao }
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        // Alterna entre o botão de adicionar e o botão de cancelar tracejado
+        if (!mostrarNovoCartao) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .border(BorderStroke(1.dp, CorBordaChip), RoundedCornerShape(12.dp))
+                    .clickable { mostrarNovoCartao = true },
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Transparent)
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("+ Adicionar cartão", color = CorChipTexto)
+                }
+            }
+        } else {
+            val corner = 12.dp
+            val strokeWidthPx = 1.5f
+            val dashIntervals = floatArrayOf(15f, 10f)
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(corner))
+                    .clickable { mostrarNovoCartao = false }
+                    .drawBehind {
+                        val paint = Paint().apply {
+                            color = CorEdicao
+                            style = PaintingStyle.Stroke
+                            strokeWidth = strokeWidthPx * density
+                            pathEffect = PathEffect.dashPathEffect(
+                                intervals = dashIntervals,
+                                phase = 0f
+                            )
+                        }
+                        val radius = corner.toPx()
+                        drawIntoCanvas { canvas ->
+                            canvas.drawRoundRect(
+                                left = 0f,
+                                top = 0f,
+                                right = size.width,
+                                bottom = size.height,
+                                radiusX = radius,
+                                radiusY = radius,
+                                paint = paint
+                            )
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cancelar",
+                        tint = CorEdicao,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Cancelar",
+                        color = CorEdicao,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        if (mostrarNovoCartao) {
+            Spacer(Modifier.height(12.dp))
+            NovoCartaoForm(
+                onSave = { instituicao, fechamento, vencimento, limiteCentavos ->
+                    onAdicionarCartao(instituicao, fechamento, vencimento, limiteCentavos)
+                    mostrarNovoCartao = false
+                }
+            )
+        }
+    }
+
+    dialogCartaoSelecionado?.let { cartao ->
+        ConfirmacaoExcluirDialog(
+            cartaoNome = cartao.nome,
+            onConfirm = {
+                onExcluirCartao(cartao.id)
+                dialogCartaoSelecionado = null
+            },
+            onDismiss = { dialogCartaoSelecionado = null }
+        )
+    }
+}
+
+@Composable
+private fun NovoCartaoForm(
+    onSave: (InstituicaoPredefinida, Int, Int, Long) -> Unit
+) {
+    var selecionada by remember {
+        mutableStateOf<InstituicaoPredefinida?>(instituicoesPredefinidas.firstOrNull())
+    }
+    var fechamentoText by remember { mutableStateOf("") }
+    var vencimentoText by remember { mutableStateOf("") }
+    var limiteText by remember { mutableStateOf("") }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Novo cartão",
+                    color = CorTextoEdicao,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            androidx.compose.material3.HorizontalDivider(
+                color = CorCardStat.copy(alpha = 0.6f)
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = "Cartões dos bancos",
+                style = MaterialTheme.typography.labelMedium,
+                color = CorTextoPlaceholder
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                instituicoesPredefinidas.forEach { instituicao ->
+                    val isSelected = instituicao == selecionada
+                    val context = LocalContext.current
+
+                    // 1. Ajuste para a Caixa Econômica buscar o arquivo "cef"
+                    val logoRes = remember(instituicao.chave) {
+                        // Verifica pela sigla "CX" ou se a chave contém "caixa"
+                        val nomeArquivo = if (instituicao.sigla == "CX" || instituicao.chave.contains("caixa", ignoreCase = true)) {
+                            "cef"
+                        } else {
+                            instituicao.chave
+                        }
+                        context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
+                    }
+
+                    // 2. Ajuste para pintar o PicPay com a cor correta
+                    val iconeTint = if (instituicao.chave == "picpay") {
+                        Color(0xFF01C66A)
+                    } else {
+                        Color.Unspecified
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isSelected) Color.White else Color(0xFFF4F7F3)
+                            )
+                            .border(
+                                width = if (isSelected) 2.dp else 1.dp,
+                                color = if (isSelected) instituicao.cor else Color(0xFFE0E8E3),
+                                shape = CircleShape
+                            )
+                            .clickable { selecionada = instituicao },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (logoRes != 0) {
+                            Icon(
+                                painter = painterResource(id = logoRes),
+                                contentDescription = instituicao.nome,
+                                tint = iconeTint, // <-- Cor aplicada aqui
+                                modifier = Modifier.size(30.dp)
+                            )
+                        } else {
+                            Text(
+                                text = instituicao.sigla,
+                                color = instituicao.cor,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = selecionada?.let { "${it.nome} selecionado" }
+                    ?: "Nenhuma instituição",
+                color = CorTextoPlaceholder,
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                CampoCartaoCinza(
+                    titulo = "Fecha no dia",
+                    valor = fechamentoText,
+                    placeholder = "Ex: 19",
+                    onValueChange = { fechamentoText = it.filter(Char::isDigit) },
+                    modifier = Modifier.weight(1f)
+                )
+                CampoCartaoCinza(
+                    titulo = "Vence no dia",
+                    valor = vencimentoText,
+                    placeholder = "Ex: 26",
+                    onValueChange = { vencimentoText = it.filter(Char::isDigit) },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            CampoCartaoCinza(
+                titulo = "Limite do cartão",
+                valor = limiteText,
+                placeholder = "0,00",
+                onValueChange = { limiteText = it.filter(Char::isDigit) },
+                modifier = Modifier.fillMaxWidth(),
+                prefixo = "R$ "
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            Button(
+                onClick = {
+                    val fechamento = fechamentoText.toIntOrNull() ?: 1
+                    val vencimento = vencimentoText.toIntOrNull() ?: 1
+                    val limiteCentavos = limiteText.toLongOrNull() ?: 0L
+
+                    selecionada?.let {
+                        onSave(it, fechamento, vencimento, limiteCentavos)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Salvar cartão")
+            }
+        }
+    }
+}
+
+@Composable
+private fun CampoCartaoCinza(
+    titulo: String,
+    valor: String,
+    placeholder: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    prefixo: String? = null
+) {
+    Column(modifier = modifier) {
+        Text(
+            text = titulo,
+            style = MaterialTheme.typography.labelSmall,
+            color = CorTextoPlaceholder
+        )
+        Spacer(Modifier.height(4.dp))
+
+        androidx.compose.foundation.text.BasicTextField(
+            value = valor,
+            onValueChange = onValueChange,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = CorTextoPlaceholder,
+                fontSize = 14.sp
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(44.dp), // Aqui definimos a altura achatada (44.dp fica ótimo)
+            decorationBox = { innerTextField ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically, // Centraliza tudo verticalmente sem cortar
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(1.dp, CorBordaCampo, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 12.dp) // Apenas padding nas laterais
+                ) {
+                    if (prefixo != null) {
+                        Text(
+                            text = prefixo,
+                            color = CorTextoPlaceholder,
+                            fontSize = 14.sp
+                        )
+                    }
+
+                    Box(
+                        contentAlignment = Alignment.CenterStart,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (valor.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                color = CorTextoPlaceholder,
+                                fontSize = 14.sp
+                            )
+                        }
+                        innerTextField() // Onde o texto digitado realmente aparece
+                    }
+                }
+            }
+        )
     }
 }
 
@@ -365,7 +791,6 @@ private fun CategoriasContent(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
 
-        // ===== Estatísticas (3 cards) + Busca funcional =====
         val ativasCount = uiState.categorias.count { it.ativa }
         val inativasCount = uiState.categorias.count { !it.ativa }
         val comTetoCount = uiState.categorias.count { it.tetoMensal != null }
@@ -574,10 +999,6 @@ private fun CategoriaPill(
                     .padding(horizontal = 12.dp)
             ) {
                 when {
-                    /*
-                     * Caso 1:
-                     * A categoria possui um arquivo drawable, como um Vector Asset XML.
-                     */
                     resId != 0 -> {
                         Icon(
                             painter = painterResource(id = resId),
@@ -586,11 +1007,6 @@ private fun CategoriaPill(
                             modifier = Modifier.size(16.dp)
                         )
                     }
-
-                    /*
-                     * Caso 2:
-                     * O usuário selecionou um emoji no seletor.
-                     */
                     categoria.iconeChave.ehEmoji() -> {
                         Text(
                             text = categoria.iconeChave,
@@ -598,12 +1014,6 @@ private fun CategoriaPill(
                             maxLines = 1
                         )
                     }
-
-                    /*
-                     * Caso 3:
-                     * Categoria criada com chave interna, como "lazer",
-                     * "alimentacao", "viagem" etc.
-                     */
                     else -> {
                         Icon(
                             imageVector = iconeCategoria(categoria.iconeChave),
@@ -677,14 +1087,6 @@ private fun InativasSection(
             .fillMaxWidth()
             .animateContentSize()
     ) {
-        /*
-         * Cabeçalho:
-         * INATIVAS • 3 ▲
-         *
-         * Não usamos Arrangement.SpaceBetween.
-         * Assim, a seta fica logo após o número,
-         * em vez de ficar no extremo direito da tela.
-         */
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -703,9 +1105,6 @@ private fun InativasSection(
 
             Spacer(modifier = Modifier.width(6.dp))
 
-            /*
-             * Ponto menor e cinza.
-             */
             Text(
                 text = "•",
                 color = corTextoInativo,
@@ -785,12 +1184,6 @@ private fun CategoryInactivePill(
             .height(36.dp)
             .clip(RoundedCornerShape(corner))
             .clickable {
-                /*
-                 * Ao tocar na categoria inativa:
-                 * ativa = true
-                 * portanto ela sai de INATIVAS
-                 * e passa automaticamente para ATIVAS.
-                 */
                 onToggle(true)
             }
             .drawBehind {
@@ -836,7 +1229,6 @@ private fun CategoryInactivePill(
                         maxLines = 1
                     )
                 }
-
                 else -> {
                     Icon(
                         imageVector = iconeCategoria(categoria.iconeChave),
@@ -854,14 +1246,6 @@ private fun CategoryInactivePill(
                 color = corInativa,
                 style = MaterialTheme.typography.bodyMedium
             )
-
-            /*
-             * Não coloque ArrowDropDown aqui.
-             *
-             * Agora a categoria inteira é clicável:
-             * Educação, Lazer, Saúde etc.
-             * Ao tocar, ela é reativada.
-             */
         }
     }
 }
@@ -871,6 +1255,7 @@ private fun String.ehEmoji(): Boolean {
         caractere.code > 255
     }
 }
+
 @Composable
 private fun NovoCategoriaCard(
     uiState: EdicaoUiState,
@@ -911,18 +1296,10 @@ private fun NovoCategoriaCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            /*
-             * Linha 1:
-             * SVG da engrenagem + campo Nome da categoria.
-             */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                /*
-                 * Box externo:
-                 * mantém o menu de emojis ancorado no botão da engrenagem.
-                 */
                 Box {
                     val fundoEngrenagem = Brush.verticalGradient(
                         colors = listOf(
@@ -969,9 +1346,6 @@ private fun NovoCategoriaCard(
                         }
                     }
 
-                    /*
-                     * Deve existir somente UM EmojiPickerDropdown.
-                     */
                     EmojiPickerDropdown(
                         expanded = mostrarPicker,
                         onDismiss = {
@@ -986,10 +1360,6 @@ private fun NovoCategoriaCard(
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                /*
-                 * Campo Nome:
-                 * weight(1f) ocupa apenas o espaço restante da Row.
-                 */
                 OutlinedTextField(
                     value = uiState.novaCategoriaNome,
                     onValueChange = onNomeAlterado,
@@ -1018,9 +1388,6 @@ private fun NovoCategoriaCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            /*
-             * Sugestões: Pets, Saúde, Lazer e Viagem.
-             */
             val preSelecionadas = remember {
                 categoriasSugeridas
                     .sortedBy { it.nome.length }
@@ -1071,10 +1438,6 @@ private fun NovoCategoriaCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            /*
-             * Campo Teto mensal:
-             * fica abaixo das sugestões, fora da Row da engrenagem.
-             */
             OutlinedTextField(
                 value = uiState.novaCategoriaTetoTexto,
                 onValueChange = onTetoAlterado,
@@ -1174,6 +1537,56 @@ private fun EmojiPickerDropdown(
         }
     }
 }
+
+@Composable
+private fun ResumoCartoesCard(
+    limiteDisponivelCentavos: Long = 0L,
+    totalLimiteCentavos: Long = 0L,
+    ativos: Int
+) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = CorEdicao),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(112.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "LIMITE TOTAL DISPONÍVEL",
+                color = Color.White.copy(alpha = 0.9f),
+                style = MaterialTheme.typography.labelSmall
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = limiteDisponivelCentavos.formatarMoeda(),
+                color = Color.White,
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "$ativos ${if (ativos == 1) "cartão ativo" else "cartões ativos"}",
+                    color = Color.White.copy(alpha = 0.95f),
+                    style = MaterialTheme.typography.bodySmall
+                )
+
+                if (totalLimiteCentavos > 0L) {
+                    Spacer(Modifier.width(12.dp))
+                    Text(text = "•", color = Color.White.copy(alpha = 0.6f))
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        text = "Limite total ${totalLimiteCentavos.formatarMoeda()}",
+                        color = Color.White.copy(alpha = 0.95f),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun LinhaCartaoPredefinido(
     instituicao: InstituicaoPredefinida,
@@ -1218,6 +1631,400 @@ private fun LinhaCartaoPredefinido(
             }
         }
     }
+}
+
+@Composable
+private fun CartaoDetalhado(
+    cartao: com.example.controlegastos.domain.model.Cartao,
+    disponivelCentavos: Long,
+    usadoCentavos: Long,
+    limiteCentavos: Long,
+    ativo: Boolean,
+    onAtivacaoAlterada: (Boolean) -> Unit,
+    onSalvarDatas: (Int, Int) -> Unit
+) {
+    val corSubtitulo = CorTextoPlaceholder
+    val corLabelCinza = CorTextoPlaceholder
+    val progresso = remember(disponivelCentavos, usadoCentavos) {
+        val total = (usadoCentavos + disponivelCentavos).coerceAtLeast(1L)
+        (usadoCentavos.toDouble() / total.toDouble()).toFloat().coerceIn(0f, 1f)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val context = LocalContext.current
+                val logoRes = remember(cartao.marcaChave) {
+                    context.resources.getIdentifier(cartao.marcaChave, "drawable", context.packageName)
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFF0F4EF)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (logoRes != 0) {
+                        Icon(
+                            painter = painterResource(id = logoRes),
+                            contentDescription = cartao.nome,
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text(
+                            text = cartao.nome.take(2).uppercase(),
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = cartao.nome,
+                            color = CorTextoEdicao,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+
+                        Spacer(Modifier.width(8.dp))
+
+                        if (ativo) {
+                            Card(
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE9FBF0)),
+                                modifier = Modifier.height(22.dp)
+                            ) {
+                                Text(
+                                    text = "ATIVO",
+                                    color = CorEdicao,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(4.dp))
+
+                    Text(
+                        text = "Fecha dia ${cartao.diaFechamento} • Vence dia ${cartao.diaVencimento}",
+                        color = corSubtitulo,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                Spacer(Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .size(width = 46.dp, height = 28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    androidx.compose.material3.Switch(
+                        checked = ativo,
+                        onCheckedChange = { novo -> onAtivacaoAlterada(novo) },
+                        modifier = Modifier
+                            .then(Modifier.size(46.dp, 28.dp))
+                            .scale(0.9f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "DISPONÍVEL", color = corLabelCinza, style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        text = disponivelCentavos.formatarMoeda(),
+                        color = CorEdicao,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(text = "USADO", color = corLabelCinza, style = MaterialTheme.typography.labelSmall)
+                    Text(text = usadoCentavos.formatarMoeda(), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
+            androidx.compose.material3.LinearProgressIndicator(
+                progress = { progresso },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+                trackColor = Color(0xFFECEFF0),
+                color = CorEdicao
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "Limite ${limiteCentavos.formatarMoeda()}",
+                color = corLabelCinza,
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            Spacer(Modifier.height(10.dp))
+
+            Divider()
+
+            Spacer(Modifier.height(6.dp))
+
+            var editarExpandido by remember { mutableStateOf(false) }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { editarExpandido = !editarExpandido }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "✏️",
+                    fontSize = 16.sp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = "Editar ciclo de cobrança",
+                    color = CorEdicao,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Icon(
+                    imageVector = if (editarExpandido) androidx.compose.material.icons.Icons.Default.KeyboardArrowUp else androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
+                    contentDescription = if (editarExpandido) "Recolher" else "Expandir",
+                    tint = corLabelCinza
+                )
+            }
+
+            if (editarExpandido) {
+                Spacer(Modifier.height(8.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 4.dp)
+                ) {
+                    var fechamentoText by remember { mutableStateOf(cartao.diaFechamento.toString()) }
+                    var vencimentoText by remember { mutableStateOf(cartao.diaVencimento.toString()) }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Fecha no dia",
+                                color = corLabelCinza,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = fechamentoText,
+                                onValueChange = { fechamentoText = it.filter { ch -> ch.isDigit() } },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = CorTextoEdicao,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp)
+                                    .border(1.dp, Color(0xFFE1E7E3), RoundedCornerShape(8.dp))
+                                    .background(Color.White, RoundedCornerShape(8.dp)),
+                                decorationBox = { innerTextField ->
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                        }
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Vence no dia",
+                                color = corLabelCinza,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            androidx.compose.foundation.text.BasicTextField(
+                                value = vencimentoText,
+                                onValueChange = { vencimentoText = it.filter { ch -> ch.isDigit() } },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    color = CorTextoEdicao,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(38.dp)
+                                    .border(1.dp, Color(0xFFE1E7E3), RoundedCornerShape(8.dp))
+                                    .background(Color.White, RoundedCornerShape(8.dp)),
+                                decorationBox = { innerTextField ->
+                                    Box(
+                                        contentAlignment = Alignment.Center,
+                                        modifier = Modifier.fillMaxSize()
+                                    ) {
+                                        innerTextField()
+                                    }
+                                }
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.height(16.dp))
+
+                    Button(
+                        onClick = {
+                            val f = fechamentoText.toIntOrNull() ?: cartao.diaFechamento
+                            val v = vencimentoText.toIntOrNull() ?: cartao.diaVencimento
+                            onSalvarDatas(f, v)
+                            editarExpandido = false
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(42.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                            containerColor = CorEdicao
+                        )
+                    ) {
+                        Text("Salvar alterações", fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CartaoInativoRow(
+    cartao: com.example.controlegastos.domain.model.Cartao,
+    onAtivar: (Boolean) -> Unit,
+    onLongDelete: () -> Unit
+) {
+    val corInativa = Color(0xFF7B8C86)
+    val context = LocalContext.current
+    val logoRes = remember(cartao.marcaChave) {
+        context.resources.getIdentifier(cartao.marcaChave, "drawable", context.packageName)
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .combinedClickable(
+                onClick = { onAtivar(true) },
+                onLongClick = onLongDelete
+            )
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFF0F4EF)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (logoRes != 0) {
+                Icon(
+                    painter = painterResource(id = logoRes),
+                    contentDescription = cartao.nome,
+                    tint = Color.Unspecified,
+                    modifier = Modifier.size(20.dp)
+                )
+            } else {
+                Text(
+                    text = cartao.nome.take(1).uppercase(),
+                    color = corInativa,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = cartao.nome,
+                color = CorTextoEdicao,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Toque para ativar",
+                color = corInativa,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        Box(
+            modifier = Modifier.size(width = 46.dp, height = 28.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Switch(
+                checked = false,
+                onCheckedChange = onAtivar,
+                modifier = Modifier
+                    .size(46.dp, 28.dp)
+                    .scale(0.9f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConfirmacaoExcluirDialog(
+    cartaoNome: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Excluir cartão") },
+        text = {
+            Text(
+                "Tem certeza que deseja excluir o cartão \"$cartaoNome\"? " +
+                        "Essa ação não poderá ser desfeita."
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("Excluir", color = Color.Red)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancelar")
+            }
+        }
+    )
 }
 
 @Composable

@@ -75,4 +75,8 @@ class CartaoRepositoryImpl @Inject constructor(
         diaFechamento = diaFechamento,
         diaVencimento = diaVencimento
     )
+
+    override suspend fun excluir(cartaoId: Int) {
+        cartaoDao.excluirPorId(cartaoId)
+    }
 }
