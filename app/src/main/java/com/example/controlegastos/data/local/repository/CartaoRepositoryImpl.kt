@@ -63,7 +63,8 @@ class CartaoRepositoryImpl @Inject constructor(
         corHex = corHex,
         ativo = ativo,
         diaFechamento = diaFechamento,
-        diaVencimento = diaVencimento
+        diaVencimento = diaVencimento,
+        limiteCentavos = limiteCentavos // Campo adicionado
     )
 
     private fun Cartao.toEntity(id: Int = this.id) = CartaoEntity(
@@ -73,10 +74,12 @@ class CartaoRepositoryImpl @Inject constructor(
         corHex = corHex,
         ativo = ativo,
         diaFechamento = diaFechamento,
-        diaVencimento = diaVencimento
+        diaVencimento = diaVencimento,
+        limiteCentavos = limiteCentavos // Campo adicionado
     )
 
     override suspend fun excluir(cartaoId: Int) {
         cartaoDao.excluirPorId(cartaoId)
     }
+
 }

@@ -170,7 +170,8 @@ class EdicaoViewModel @Inject constructor(
                             corHex = instituicao.cor.toHex(),
                             ativo = ativo,
                             diaFechamento = instituicao.diaFechamentoPadrao,
-                            diaVencimento = instituicao.diaVencimentoPadrao
+                            diaVencimento = instituicao.diaVencimentoPadrao,
+                            limiteCentavos = 0L // Valor padrão caso adicione via ativação rápida
                         )
                     )
                 } else {
@@ -222,12 +223,6 @@ class EdicaoViewModel @Inject constructor(
 
         viewModelScope.launch {
             runCatching {
-                /*
-                 * O modelo Cartao atual não possui limiteCentavos.
-                 * O valor é validado e recebido da tela, mas ainda não é
-                 * persistido até você incluir esse campo no model, entity,
-                 * tabela Room, DAO e repository.
-                 */
                 cartaoRepository.salvarOuAtualizarPorMarca(
                     Cartao(
                         nome = nome,
@@ -235,7 +230,8 @@ class EdicaoViewModel @Inject constructor(
                         corHex = instituicao.cor.toHex(),
                         ativo = true,
                         diaFechamento = diaFechamento,
-                        diaVencimento = diaVencimento
+                        diaVencimento = diaVencimento,
+                        limiteCentavos = limiteCentavos // <-- AJUSTE APLICADO AQUI
                     )
                 )
             }.onSuccess {

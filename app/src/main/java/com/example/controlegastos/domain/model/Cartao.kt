@@ -7,5 +7,6 @@ data class Cartao(
     val corHex: String,
     val ativo: Boolean = true,
     val diaFechamento: Int = 29,
-    val diaVencimento: Int = 5
+    val diaVencimento: Int = 5,
+    val limiteCentavos: Long = 0L // novo campo
 )

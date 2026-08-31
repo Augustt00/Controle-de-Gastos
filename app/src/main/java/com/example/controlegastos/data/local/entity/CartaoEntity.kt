@@ -16,5 +16,6 @@ data class CartaoEntity(
     @ColumnInfo(name = "cor_hex") val corHex: String,
     @ColumnInfo(name = "ativo") val ativo: Boolean = true,
     @ColumnInfo(name = "dia_fechamento") val diaFechamento: Int = 29,
-    @ColumnInfo(name = "dia_vencimento") val diaVencimento: Int = 5
+    @ColumnInfo(name = "dia_vencimento") val diaVencimento: Int = 5,
+    @ColumnInfo(name = "limite_centavos") val limiteCentavos: Long = 0L // novo campo
 )

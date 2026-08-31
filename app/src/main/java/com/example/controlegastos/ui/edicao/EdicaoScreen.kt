@@ -118,14 +118,15 @@ import com.example.controlegastos.R
 import com.example.controlegastos.domain.model.Categoria
 import com.example.controlegastos.domain.model.ContaSaldo
 import com.example.controlegastos.domain.model.TipoContaSaldo
+import java.util.Locale
 
-// ====== CORES / CONSTANTES DE ESTILO (ajuste HEX se quiser 1:1) ======
-private val CorEdicao = Color(0xFF2F6F62) // verde principal
+// ====== CORES / CONSTANTES DE ESTILO ======
+private val CorEdicao = Color(0xFF2F6F62)
 private val CorTextoEdicao = Color(0xFF123C3A)
 private val CorFundo = Color(0xFFF4F7F3)
 private val CorCardClaro = Color(0xFFFFFFFF)
 private val CorCardStat = Color(0xFFF0F4EF)
-private val CorPillBg = Color(0xFF1B5B3A) // cor das pills de categoria (escura)
+private val CorPillBg = Color(0xFF1B5B3A)
 private val CorTetoChipBg = Color(0xFF153B33)
 private val CorPillHeight = 44.dp
 private val CorBordaCampo = Color(0xFF9AA9A2)
@@ -201,7 +202,7 @@ fun EdicaoScreen(
                                 },
                                 onRemoverCategoria = { categoria ->
                                     viewModel.excluirCategoria(categoria.id)
-                                }, // <--- CORREÇÃO APLICADA
+                                },
                                 onSelecionarEmoji = viewModel::atualizarIconeCategoria
                             )
                         }
@@ -209,15 +210,9 @@ fun EdicaoScreen(
                     1 -> {
                         val cartoesAtivos = uiState.cartoes.filter { it.ativo }
                         val cartoesInativos = uiState.cartoes.filter { !it.ativo }
-                        val sampleTotals = mapOf(
-                            "nubank" to Pair(800_000L, 324_000L),
-                            "c6" to Pair(500_000L, 187_000L),
-                            "itau" to Pair(600_000L, 120_000L),
-                            "picpay" to Pair(200_000L, 50_000L),
-                            "mercado_pago" to Pair(400_000L, 90_000L),
-                            "bradesco" to Pair(300_000L, 0L),
-                            "bank" to Pair(250_000L, 0L)
-                        )
+
+                        val totalLimiteCentavos = uiState.cartoes.sumOf { it.limiteCentavos }
+                        val totalDisponivelCentavos = cartoesAtivos.sumOf { (it.limiteCentavos).coerceAtLeast(0L) }
 
                         fun alterarAtivacaoPorCartao(
                             cartao: com.example.controlegastos.domain.model.Cartao,
@@ -229,27 +224,22 @@ fun EdicaoScreen(
                         }
 
                         item {
-                            CabecalhoSecao(
-                                titulo = "Cartões",
-                                descricao = "Ative os cartões que você deseja usar futuramente nos lançamentos."
-                            )
-                        }
-
-                        item {
                             ResumoCartoesCard(
-                                limiteDisponivelCentavos = 0L,
-                                totalLimiteCentavos = 0L,
+                                limiteDisponivelCentavos = totalDisponivelCentavos,
+                                totalLimiteCentavos = totalLimiteCentavos,
                                 ativos = cartoesAtivos.size
                             )
                         }
 
                         cartoesAtivos.forEach { cartao ->
                             item(key = "ativo_${cartao.id}") {
-                                val (limiteCentavos, usadoCentavos) =
-                                    sampleTotals[cartao.marcaChave] ?: (0L to 0L)
+                                val limiteCentavos = cartao.limiteCentavos
+                                val usadoCentavos = 0L
+                                val disponivelCentavos = (limiteCentavos - usadoCentavos).coerceAtLeast(0L)
+
                                 CartaoDetalhado(
                                     cartao = cartao,
-                                    disponivelCentavos = (limiteCentavos - usadoCentavos).coerceAtLeast(0L),
+                                    disponivelCentavos = disponivelCentavos,
                                     usadoCentavos = usadoCentavos,
                                     limiteCentavos = limiteCentavos,
                                     ativo = true,
@@ -376,7 +366,6 @@ fun InativasSectionCartoes(
             Spacer(Modifier.height(8.dp))
         }
 
-        // Alterna entre o botão de adicionar e o botão de cancelar tracejado
         if (!mostrarNovoCartao) {
             Card(
                 modifier = Modifier
@@ -467,16 +456,44 @@ fun InativasSectionCartoes(
     }
 }
 
+private fun parseCurrencyToCentavos(input: String): Long {
+    val digits = input.filter { it.isDigit() }
+    if (digits.isBlank()) return 0L
+    return if (digits.length <= 2) {
+        digits.toLong()
+    } else {
+        val reais = digits.dropLast(2).toLong()
+        val cents = digits.takeLast(2).toLong()
+        reais * 100 + cents
+    }
+}
+
+
+private fun formatarTextoMoeda(input: String): String {
+    val apenasDigitos = input.filter { it.isDigit() }
+    if (apenasDigitos.isBlank()) return ""
+
+    val valorLong = apenasDigitos.toLongOrNull() ?: 0L
+    val reais = valorLong / 100
+    val centavos = valorLong % 100
+
+    // Formata os reais com separador de milhar (ponto)
+    val reaisFormatados = java.text.NumberFormat.getIntegerInstance(Locale("pt", "BR")).format(reais)
+
+    return "%s,%02d".format(reaisFormatados, centavos)
+}
 @Composable
 private fun NovoCartaoForm(
     onSave: (InstituicaoPredefinida, Int, Int, Long) -> Unit
 ) {
     var selecionada by remember {
-        mutableStateOf<InstituicaoPredefinida?>(instituicoesPredefinidas.firstOrNull())
+        mutableStateOf<InstituicaoPredefinida?>(
+            instituicoesPredefinidas.firstOrNull()
+        )
     }
     var fechamentoText by remember { mutableStateOf("") }
     var vencimentoText by remember { mutableStateOf("") }
-    var limiteText by remember { mutableStateOf("") }
+    var limiteText by remember { mutableStateOf("") } // Armazena o valor formatado
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -484,9 +501,13 @@ private fun NovoCartaoForm(
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
     ) {
-        Column(Modifier.padding(12.dp)) {
+        Column(
+            modifier = Modifier.padding(12.dp)
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -519,18 +540,24 @@ private fun NovoCartaoForm(
                     val isSelected = instituicao == selecionada
                     val context = LocalContext.current
 
-                    // 1. Ajuste para a Caixa Econômica buscar o arquivo "cef"
                     val logoRes = remember(instituicao.chave) {
-                        // Verifica pela sigla "CX" ou se a chave contém "caixa"
-                        val nomeArquivo = if (instituicao.sigla == "CX" || instituicao.chave.contains("caixa", ignoreCase = true)) {
-                            "cef"
-                        } else {
-                            instituicao.chave
-                        }
-                        context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
+                        val nomeArquivo =
+                            if (
+                                instituicao.sigla == "CX" ||
+                                instituicao.chave.contains("caixa", ignoreCase = true)
+                            ) {
+                                "cef"
+                            } else {
+                                instituicao.chave
+                            }
+
+                        context.resources.getIdentifier(
+                            nomeArquivo,
+                            "drawable",
+                            context.packageName
+                        )
                     }
 
-                    // 2. Ajuste para pintar o PicPay com a cor correta
                     val iconeTint = if (instituicao.chave == "picpay") {
                         Color(0xFF01C66A)
                     } else {
@@ -546,17 +573,23 @@ private fun NovoCartaoForm(
                             )
                             .border(
                                 width = if (isSelected) 2.dp else 1.dp,
-                                color = if (isSelected) instituicao.cor else Color(0xFFE0E8E3),
+                                color = if (isSelected) {
+                                    instituicao.cor
+                                } else {
+                                    Color(0xFFE0E8E3)
+                                },
                                 shape = CircleShape
                             )
-                            .clickable { selecionada = instituicao },
+                            .clickable {
+                                selecionada = instituicao
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         if (logoRes != 0) {
                             Icon(
                                 painter = painterResource(id = logoRes),
                                 contentDescription = instituicao.nome,
-                                tint = iconeTint, // <-- Cor aplicada aqui
+                                tint = iconeTint,
                                 modifier = Modifier.size(30.dp)
                             )
                         } else {
@@ -581,19 +614,26 @@ private fun NovoCartaoForm(
 
             Spacer(Modifier.height(12.dp))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 CampoCartaoCinza(
                     titulo = "Fecha no dia",
                     valor = fechamentoText,
                     placeholder = "Ex: 19",
-                    onValueChange = { fechamentoText = it.filter(Char::isDigit) },
+                    onValueChange = {
+                        fechamentoText = it.filter(Char::isDigit)
+                    },
                     modifier = Modifier.weight(1f)
                 )
+
                 CampoCartaoCinza(
                     titulo = "Vence no dia",
                     valor = vencimentoText,
                     placeholder = "Ex: 26",
-                    onValueChange = { vencimentoText = it.filter(Char::isDigit) },
+                    onValueChange = {
+                        vencimentoText = it.filter(Char::isDigit)
+                    },
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -604,7 +644,9 @@ private fun NovoCartaoForm(
                 titulo = "Limite do cartão",
                 valor = limiteText,
                 placeholder = "0,00",
-                onValueChange = { limiteText = it.filter(Char::isDigit) },
+                onValueChange = { novoTexto ->
+                    limiteText = formatarTextoMoeda(novoTexto)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 prefixo = "R$ "
             )
@@ -615,10 +657,20 @@ private fun NovoCartaoForm(
                 onClick = {
                     val fechamento = fechamentoText.toIntOrNull() ?: 1
                     val vencimento = vencimentoText.toIntOrNull() ?: 1
-                    val limiteCentavos = limiteText.toLongOrNull() ?: 0L
 
-                    selecionada?.let {
-                        onSave(it, fechamento, vencimento, limiteCentavos)
+                    // Remove vírgula/pontos e preserva apenas os centavos.
+                    val limiteCentavos = limiteText
+                        .filter { it.isDigit() }
+                        .toLongOrNull()
+                        ?: 0L
+
+                    selecionada?.let { instituicao ->
+                        onSave(
+                            instituicao,
+                            fechamento,
+                            vencimento,
+                            limiteCentavos
+                        )
                     }
                 },
                 modifier = Modifier
@@ -660,14 +712,14 @@ private fun CampoCartaoCinza(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(44.dp), // Aqui definimos a altura achatada (44.dp fica ótimo)
+                .height(44.dp),
             decorationBox = { innerTextField ->
                 Row(
-                    verticalAlignment = Alignment.CenterVertically, // Centraliza tudo verticalmente sem cortar
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxSize()
                         .border(1.dp, CorBordaCampo, RoundedCornerShape(10.dp))
-                        .padding(horizontal = 12.dp) // Apenas padding nas laterais
+                        .padding(horizontal = 12.dp)
                 ) {
                     if (prefixo != null) {
                         Text(
@@ -688,7 +740,7 @@ private fun CampoCartaoCinza(
                                 fontSize = 14.sp
                             )
                         }
-                        innerTextField() // Onde o texto digitado realmente aparece
+                        innerTextField()
                     }
                 }
             }
@@ -908,7 +960,7 @@ private fun CategoriasContent(
                 ativosFiltrados.forEach { categoria ->
                     CategoriaPill(
                         categoria = categoria,
-                        onClick = { /* abrir edição se desejar */ },
+                        onClick = { },
                         onToggle = { ativa -> onAlternarAtivacao(categoria, ativa) },
                         onRemove = { onRemoverCategoria(categoria) }
                     )
@@ -1481,7 +1533,6 @@ private fun NovoCategoriaCard(
     }
 }
 
-
 @Composable
 private fun EmojiPickerDropdown(
     expanded: Boolean,
@@ -1588,52 +1639,6 @@ private fun ResumoCartoesCard(
 }
 
 @Composable
-private fun LinhaCartaoPredefinido(
-    instituicao: InstituicaoPredefinida,
-    cartao: com.example.controlegastos.domain.model.Cartao?,
-    ativo: Boolean,
-    onAtivacaoAlterada: (Boolean) -> Unit,
-    onEditar: (com.example.controlegastos.domain.model.Cartao) -> Unit
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                BadgeInstituicao(instituicao)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        instituicao.nome,
-                        color = CorTextoEdicao,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        if (ativo) "Cartão ativo" else "Cartão desativado",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-                Switch(checked = ativo, onCheckedChange = onAtivacaoAlterada)
-            }
-            if (ativo && cartao != null) {
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "Fecha dia ${cartao.diaFechamento} • Vence dia ${cartao.diaVencimento}",
-                    color = CorTextoEdicao,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                Text(
-                    text = "Toque para editar os dias",
-                    modifier = Modifier.clickable { onEditar(cartao) },
-                    color = CorEdicao,
-                    style = MaterialTheme.typography.labelMedium
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun CartaoDetalhado(
     cartao: com.example.controlegastos.domain.model.Cartao,
     disponivelCentavos: Long,
@@ -1651,8 +1656,7 @@ private fun CartaoDetalhado(
     }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -1661,7 +1665,12 @@ private fun CartaoDetalhado(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val context = LocalContext.current
                 val logoRes = remember(cartao.marcaChave) {
-                    context.resources.getIdentifier(cartao.marcaChave, "drawable", context.packageName)
+                    val nomeArquivo = if (cartao.marcaChave.contains("caixa", ignoreCase = true) || cartao.marcaChave == "cx") {
+                        "cef"
+                    } else {
+                        cartao.marcaChave
+                    }
+                    context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
                 }
 
                 Box(
@@ -1672,10 +1681,11 @@ private fun CartaoDetalhado(
                     contentAlignment = Alignment.Center
                 ) {
                     if (logoRes != 0) {
+                        val iconeTint = if (cartao.marcaChave == "picpay") Color(0xFF01C66A) else Color.Unspecified
                         Icon(
                             painter = painterResource(id = logoRes),
                             contentDescription = cartao.nome,
-                            tint = Color.Unspecified,
+                            tint = iconeTint,
                             modifier = Modifier.size(24.dp)
                         )
                     } else {
@@ -1729,11 +1739,10 @@ private fun CartaoDetalhado(
                 Spacer(Modifier.width(8.dp))
 
                 Box(
-                    modifier = Modifier
-                        .size(width = 46.dp, height = 28.dp),
+                    modifier = Modifier.size(width = 46.dp, height = 28.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    androidx.compose.material3.Switch(
+                    Switch(
                         checked = ativo,
                         onCheckedChange = { novo -> onAtivacaoAlterada(novo) },
                         modifier = Modifier
@@ -1764,7 +1773,7 @@ private fun CartaoDetalhado(
 
             Spacer(Modifier.height(10.dp))
 
-            androidx.compose.material3.LinearProgressIndicator(
+            LinearProgressIndicator(
                 progress = { progresso },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1811,7 +1820,7 @@ private fun CartaoDetalhado(
                 Spacer(modifier = Modifier.weight(1f))
 
                 Icon(
-                    imageVector = if (editarExpandido) androidx.compose.material.icons.Icons.Default.KeyboardArrowUp else androidx.compose.material.icons.Icons.Default.KeyboardArrowDown,
+                    imageVector = if (editarExpandido) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
                     contentDescription = if (editarExpandido) "Recolher" else "Expandir",
                     tint = corLabelCinza
                 )
@@ -1930,7 +1939,12 @@ private fun CartaoInativoRow(
     val corInativa = Color(0xFF7B8C86)
     val context = LocalContext.current
     val logoRes = remember(cartao.marcaChave) {
-        context.resources.getIdentifier(cartao.marcaChave, "drawable", context.packageName)
+        val nomeArquivo = if (cartao.marcaChave.contains("caixa", ignoreCase = true) || cartao.marcaChave == "cx") {
+            "cef"
+        } else {
+            cartao.marcaChave
+        }
+        context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
     }
 
     Row(
@@ -1953,10 +1967,11 @@ private fun CartaoInativoRow(
             contentAlignment = Alignment.Center
         ) {
             if (logoRes != 0) {
+                val iconeTint = if (cartao.marcaChave == "picpay") Color(0xFF01C66A) else Color.Unspecified
                 Icon(
                     painter = painterResource(id = logoRes),
                     contentDescription = cartao.nome,
-                    tint = Color.Unspecified,
+                    tint = iconeTint,
                     modifier = Modifier.size(20.dp)
                 )
             } else {
@@ -2211,7 +2226,7 @@ private fun AbasEdicao(
     Card(
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE6EFEA)),
+        border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp)
