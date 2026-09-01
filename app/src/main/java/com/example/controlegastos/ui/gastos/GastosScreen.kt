@@ -6,6 +6,7 @@
 package com.example.controlegastos.ui.gastos
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -317,86 +318,90 @@ fun GastosScreen(
                         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        // Retiramos o padding geral desta Column para a linha poder encostar nas bordas
+                        Column {
+                            // 1. Cabeçalho com o seu próprio padding
                             Row(
                                 modifier = Modifier
-                                    .fillMaxWidth(),
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
                                     text = "POR CATEGORIA",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    color = Color(0xFF6F7C76), // Deixei no tom de cinza padrão
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold
                                 )
-                                // se quiser um botão ver mais, pode adicionar aqui
                                 Spacer(modifier = Modifier.width(4.dp))
                             }
 
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = "DEBUG categorias: ${uiState.gastosPorCategoria.size}",
-                                color = Color.Red,
-                                style = MaterialTheme.typography.bodySmall
+                            // 2. Traço cinza longo (HorizontalDivider)
+                            HorizontalDivider(
+                                color = Color(0xFFE1E7E3), // Cinza bem suave
+                                thickness = 1.dp
                             )
 
-                            // lista dinâmica de categorias
-                            uiState.gastosPorCategoria.forEach { gasto ->
-                                Column {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        // ícone de categoria (tenta carregar drawable por chave, senão usa vector)
-                                        IconeCategoriaPill(
-                                            iconeChave = gasto.iconeChave,
-                                            corHex = gasto.corHex
-                                        )
+                            // 3. Conteúdo da lista de categorias (com o padding aplicado novamente)
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
 
-                                        Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
-                                        // nome categoria
-                                        Text(
-                                            text = gasto.nomeCategoria,
-                                            modifier = Modifier.weight(1f),
-                                            color = CorTextoGastos,
-                                            style = MaterialTheme.typography.bodyMedium
-                                        )
+                                // lista dinâmica de categorias
+                                uiState.gastosPorCategoria.forEach { gasto ->
+                                    Column {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            IconeCategoriaPill(
+                                                iconeChave = gasto.iconeChave,
+                                                corHex = gasto.corHex
+                                            )
 
-                                        Spacer(modifier = Modifier.width(8.dp))
+                                            Spacer(modifier = Modifier.width(12.dp))
 
-                                        // valor e percentual
-                                        Column(horizontalAlignment = Alignment.End) {
                                             Text(
-                                                text = gasto.totalGasto.formatarMoeda(),
+                                                text = gasto.nomeCategoria,
+                                                modifier = Modifier.weight(1f),
                                                 color = CorTextoGastos,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                fontWeight = FontWeight.Bold
+                                                style = MaterialTheme.typography.bodyMedium
                                             )
-                                            Text(
-                                                text = "${gasto.percentualDoTotal.toInt()}%",
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                style = MaterialTheme.typography.labelSmall
-                                            )
+
+                                            Spacer(modifier = Modifier.width(8.dp))
+
+                                            Column(horizontalAlignment = Alignment.End) {
+                                                Text(
+                                                    text = gasto.totalGasto.formatarMoeda(),
+                                                    color = CorTextoGastos,
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "${gasto.percentualDoTotal.toInt()}%",
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    style = MaterialTheme.typography.labelSmall
+                                                )
+                                            }
                                         }
+
+                                        LinearProgressIndicator(
+                                            progress = (gasto.percentualDoTotal.coerceIn(0f, 100f)) / 100f,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .clip(RoundedCornerShape(6.dp)),
+                                            color = gasto.corHex.toComposeColor(),
+                                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                        )
+
+                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
-
-                                    // barra de progresso
-                                    LinearProgressIndicator(
-                                        progress = (gasto.percentualDoTotal.coerceIn(0f, 100f)) / 100f,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(6.dp)
-                                            .clip(RoundedCornerShape(6.dp)),
-                                        color = gasto.corHex.toComposeColor(),
-                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
-
-                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
                         }
@@ -419,33 +424,95 @@ fun GastosScreen(
                             Text(
                                 text = "LANÇAMENTOS",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = Color(0xFF6F7C76), // <-- Cor alterada para cinza
                                 fontWeight = FontWeight.Bold
                             )
 
-                            // botão de ordenação
+
+                            // botão de ordenação estilizado: pill branco com ícone + texto (Data / Valor)
                             Box {
-                                IconButton(onClick = { sortExpanded = true }) {
-                                    Icon(imageVector = Icons.Default.Sort, contentDescription = "Ordenar")
-                                }
-                                DropdownMenu(
-                                    expanded = sortExpanded,
-                                    onDismissRequest = { sortExpanded = false }
+                                // botão visível (pill branco)
+                                androidx.compose.material3.Surface(
+                                    shape = RoundedCornerShape(12.dp),
+                                    color = Color.White,
+                                    border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
+                                    modifier = Modifier
+                                        .height(36.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .clickable { sortExpanded = true }
                                 ) {
-                                    DropdownMenuItem(
-                                        text = { Text("Mais recentes") },
-                                        onClick = {
-                                            sortMode = SortMode.DATA
-                                            sortExpanded = false
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Sort,
+                                            contentDescription = "Ordenar",
+                                            tint = Color(0xFF78909C),
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = if (sortMode == SortMode.DATA) "Data" else "Valor",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = Color(0xFF78909C)
+                                        )
+                                    }
+                                }
+
+
+                                // Usando MaterialTheme para forçar o arredondamento perfeito do menu nativo
+                                MaterialTheme(
+                                    shapes = MaterialTheme.shapes.copy(extraSmall = RoundedCornerShape(12.dp))
+                                ) {
+                                    DropdownMenu(
+                                        expanded = sortExpanded,
+                                        onDismissRequest = { sortExpanded = false },
+                                        modifier = Modifier
+                                            .width(125.dp) // 1. Largura da caixinha reduzida
+                                            .background(Color.White)
+                                            .border(BorderStroke(1.dp, Color(0xFFE1E7E3)), RoundedCornerShape(12.dp))
+                                    ) {
+                                        // item: Mais recentes (DATA)
+                                        val selectedData = sortMode == SortMode.DATA
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(if (selectedData) CorGastos.copy(alpha = 0.12f) else Color.Transparent)
+                                                .clickable {
+                                                    sortMode = SortMode.DATA
+                                                    sortExpanded = false
+                                                }
+                                                .padding(vertical = 10.dp, horizontal = 12.dp) // 2. Espaçamento (padding) reduzido
+                                        ) {
+                                            Text(
+                                                text = "Mais recentes",
+                                                color = if (selectedData) CorGastos else Color(0xFF78909C),
+                                                fontWeight = if (selectedData) FontWeight.SemiBold else FontWeight.Medium,
+                                                style = MaterialTheme.typography.labelMedium // 3. Fonte menor
+                                            )
                                         }
-                                    )
-                                    DropdownMenuItem(
-                                        text = { Text("Maior valor") },
-                                        onClick = {
-                                            sortMode = SortMode.VALOR
-                                            sortExpanded = false
+
+                                        // item: Maior valor (VALOR)
+                                        val selectedValor = sortMode == SortMode.VALOR
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .background(if (selectedValor) CorGastos.copy(alpha = 0.12f) else Color.Transparent)
+                                                .clickable {
+                                                    sortMode = SortMode.VALOR
+                                                    sortExpanded = false
+                                                }
+                                                .padding(vertical = 10.dp, horizontal = 12.dp) // 2. Espaçamento (padding) reduzido
+                                        ) {
+                                            Text(
+                                                text = "Maior valor",
+                                                color = if (selectedValor) CorGastos else Color(0xFF78909C),
+                                                fontWeight = if (selectedValor) FontWeight.SemiBold else FontWeight.Medium,
+                                                style = MaterialTheme.typography.labelMedium // 3. Fonte menor
+                                            )
                                         }
-                                    )
+                                    }
                                 }
                             }
                         }
@@ -475,7 +542,7 @@ fun GastosScreen(
                             // cabeçalho da data
                             Text(
                                 text = dia.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                color = Color(0xFF6F7C76), // <-- Cor alterada para cinza
                                 style = MaterialTheme.typography.bodySmall,
                                 modifier = Modifier.padding(vertical = 6.dp)
                             )
@@ -534,7 +601,7 @@ private fun LancamentoItem(
             // incluir icone da categoria (recomendo), substitua `categoriaIconeChave` pelo campo correto.
             // Aqui uso o nome da categoria para derivar chave (fallback).
             IconeCategoriaPill(
-                iconeChave = chaveDaCategoriaAPartirDoNome(despesa.categoriaNome),
+                iconeChave = despesa.categoriaIconeChave,
                 corHex = despesa.categoriaCorHex
             )
 
@@ -561,26 +628,51 @@ private fun LancamentoItem(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // badge pequena do cartao (marcaChave inicial ou sigla)
                     val cartao = cartoes.firstOrNull { it.id == despesa.cartaoId }
                     if (cartao != null) {
-                        Box(
-                            modifier = Modifier
-                                .padding(start = 6.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFECEFF0))
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = cartao.marcaChave.takeIf { it.isNotBlank() }?.let {
-                                    // exibir apenas sigla curta (ex.: "NU", "C6")
-                                    it.uppercase().take(2)
-                                } ?: cartao.nome.firstOrNull()?.toString() ?: "",
-                                color = Color(0xFF123C3A),
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold
-                            )
+                        val context = LocalContext.current
+                        val marcaChaveLower = cartao.marcaChave.orEmpty().lowercase(Locale("pt", "BR"))
+                        val resIdCard = remember(marcaChaveLower) {
+                            if (marcaChaveLower.isBlank()) 0 else context.resources.getIdentifier(marcaChaveLower, "drawable", context.packageName)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 6.dp)) {
+                            if (resIdCard != 0) {
+                                // Drawable do cartão existe -> mostra imagem e o nome ao lado
+                                Image(
+                                    painter = painterResource(id = resIdCard),
+                                    contentDescription = cartao.nome,
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(6.dp))
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = cartao.nome,
+                                    color = Color(0xFF123C3A),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1
+                                )
+                            } else {
+                                // Fallback: sigla dentro de pill (mantive seu layout anterior)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color(0xFFECEFF0))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = cartao.marcaChave.takeIf { it.isNotBlank() }?.let {
+                                            it.uppercase().take(2)
+                                        } ?: cartao.nome.firstOrNull()?.toString() ?: "",
+                                        color = Color(0xFF123C3A),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                     }
                 }
