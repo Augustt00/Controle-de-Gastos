@@ -198,15 +198,13 @@ private class PendenciasVoyagerScreen : Screen {
 }
 
 private class GastosVoyagerScreen : Screen {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current
 
         GastosScreen(
-            onVoltar = {
-                navigator?.pop()
-            }
+            onVoltar = { navigator?.pop() },
+            onAbrirEdicao = { navigator?.push(EdicaoVoyagerScreen()) }
         )
     }
 }

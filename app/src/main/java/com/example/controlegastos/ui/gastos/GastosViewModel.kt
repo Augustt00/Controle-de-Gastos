@@ -6,6 +6,7 @@ import com.example.controlegastos.domain.model.FaturaMensal
 import com.example.controlegastos.domain.model.GastoMensal
 import com.example.controlegastos.domain.repository.DespesaRepository
 import com.example.controlegastos.domain.usecase.ExcluirDespesaUseCase
+import com.example.controlegastos.domain.usecase.GetGastosPorCategoriaUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,8 @@ import javax.inject.Inject
 @HiltViewModel
 class GastosViewModel @Inject constructor(
     private val despesaRepository: DespesaRepository,
-    private val excluirDespesaUseCase: ExcluirDespesaUseCase
+    private val excluirDespesaUseCase: ExcluirDespesaUseCase,
+    private val getGastosPorCategoriaUseCase: GetGastosPorCategoriaUseCase // ADICIONADO
 ) : ViewModel() {
 
     private val mesSelecionado = MutableStateFlow(YearMonth.now())
@@ -32,25 +34,35 @@ class GastosViewModel @Inject constructor(
         .observarFaturasAbertasPorMes()
         .map { faturas -> faturas.preencherMesesIntermediarios() }
 
-    private val despesasDaFatura = mesSelecionado.flatMapLatest { mesAno ->
+    // Deriva mesValido a partir das faturas + seleção para garantir consistência
+    private val mesValidoFlow = combine(faturasComIntervalo, mesSelecionado) { faturas, selecionado ->
+        when {
+            faturas.any { it.mesAno == selecionado } -> selecionado
+            faturas.any { it.mesAno == YearMonth.now() } -> YearMonth.now()
+            faturas.isNotEmpty() -> faturas.first().mesAno
+            else -> selecionado
+        }
+    }
+
+    // Agora baseamos as consultas no mesValidoFlow
+    private val despesasDaFatura = mesValidoFlow.flatMapLatest { mesAno ->
         despesaRepository.observarDespesasDetalhadasDaFatura(
             mes = mesAno.monthValue,
             ano = mesAno.year
         )
     }
 
+    private val gastosPorCategoriaFlow = mesValidoFlow.flatMapLatest { mesAno ->
+        getGastosPorCategoriaUseCase(mes = mesAno.monthValue, ano = mesAno.year)
+    }
+
+    // Como combinamos, usamos faturasComIntervalo e mesValidoFlow (não mesSelecionado diretamente)
     val uiState: StateFlow<GastosUiState> = combine(
         faturasComIntervalo,
-        mesSelecionado,
-        despesasDaFatura
-    ) { faturas, selecionado, despesas ->
-        val mesValido = when {
-            faturas.any { it.mesAno == selecionado } -> selecionado
-            faturas.any { it.mesAno == YearMonth.now() } -> YearMonth.now()
-            faturas.isNotEmpty() -> faturas.first().mesAno
-            else -> selecionado
-        }
-
+        mesValidoFlow,
+        despesasDaFatura,
+        gastosPorCategoriaFlow
+    ) { faturas, mesValido, despesas, gastosPorCategoria ->
         GastosUiState(
             carregando = false,
             mesSelecionado = mesValido,
@@ -60,10 +72,9 @@ class GastosViewModel @Inject constructor(
                     totalCentavos = fatura.totalCentavos
                 )
             },
-            totalMesSelecionado = faturas.firstOrNull {
-                it.mesAno == mesValido
-            }?.totalCentavos ?: 0L,
-            despesasDoMes = despesas.sortedByDescending { it.dataCompra }
+            totalMesSelecionado = faturas.firstOrNull { it.mesAno == mesValido }?.totalCentavos ?: 0L,
+            despesasDoMes = despesas.sortedByDescending { it.dataCompra },
+            gastosPorCategoria = gastosPorCategoria
         )
     }.stateIn(
         scope = viewModelScope,
