@@ -151,6 +151,20 @@ class DespesaRepositoryImpl @Inject constructor(
             }
     }
 
+    override fun observarGastosAgrupadosPorMes(): Flow<List<ProjecaoMensal>> {
+        return despesaDao
+            .getGastosAgrupadosPorMes()
+            .map { projecoes ->
+                projecoes.map { projecao ->
+                    ProjecaoMensal(
+                        ano = projecao.ano,
+                        mes = projecao.mes,
+                        totalPendente = projecao.totalCentavos
+                    )
+                }
+            }
+    }
+
     override fun observarGastosPorCategoriaNoMes(
         mes: Int,
         ano: Int

@@ -260,6 +260,27 @@ interface DespesaDao {
 
     @Query(
         """
+        SELECT
+            CAST(
+                strftime('%Y', data_compra / 1000, 'unixepoch') AS INTEGER
+            ) AS ano,
+
+            CAST(
+                strftime('%m', data_compra / 1000, 'unixepoch') AS INTEGER
+            ) AS mes,
+
+            COALESCE(SUM(valor), 0) AS total_centavos
+
+        FROM tb_despesas
+
+        GROUP BY ano, mes
+        ORDER BY ano ASC, mes ASC
+        """
+    )
+    fun getGastosAgrupadosPorMes(): Flow<List<ProjecaoMesTuple>>
+
+    @Query(
+        """
         SELECT *
         FROM tb_despesas
 

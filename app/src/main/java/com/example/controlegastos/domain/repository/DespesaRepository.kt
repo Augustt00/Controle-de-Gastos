@@ -31,7 +31,7 @@ interface DespesaRepository {
         ano: Int
     ): Flow<List<DespesaDetalhada>>
 
-
+    fun observarGastosAgrupadosPorMes(): Flow<List<ProjecaoMensal>>
 
     fun observarDetalhadasEntre(
         inicioEpoch: Long,
