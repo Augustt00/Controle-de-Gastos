@@ -6,5 +6,6 @@ data class GastoPorCategoria(
     val corHex: String,
     val tetoMensal: Long?,
     val totalGasto: Long,
-    val percentualDoTotal: Float
+    val percentualDoTotal: Float,
+    val iconeChave: String? = null // novo campo
 )

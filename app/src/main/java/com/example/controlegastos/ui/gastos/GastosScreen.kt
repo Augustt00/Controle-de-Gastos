@@ -92,6 +92,13 @@ import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.controlegastos.domain.model.Cartao
 
 private val CorGastos = Color(0xFF5F8D84)
 private val CorGastosClara = Color(0xFF9DBCB5)
@@ -329,6 +336,12 @@ fun GastosScreen(
 
                             Spacer(modifier = Modifier.height(12.dp))
 
+                            Text(
+                                text = "DEBUG categorias: ${uiState.gastosPorCategoria.size}",
+                                color = Color.Red,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+
                             // lista dinâmica de categorias
                             uiState.gastosPorCategoria.forEach { gasto ->
                                 Column {
@@ -340,7 +353,7 @@ fun GastosScreen(
                                     ) {
                                         // ícone de categoria (tenta carregar drawable por chave, senão usa vector)
                                         IconeCategoriaPill(
-                                            nomeCategoria = gasto.nomeCategoria,
+                                            iconeChave = gasto.iconeChave,
                                             corHex = gasto.corHex
                                         )
 
@@ -389,17 +402,211 @@ fun GastosScreen(
                         }
                     }
                 }
+
+                item {
+                    // Estado local de ordenação
+                    var sortExpanded by remember { mutableStateOf(false) }
+                    var sortMode by remember { mutableStateOf(SortMode.DATA) }
+
+                    Column {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "LANÇAMENTOS",
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            // botão de ordenação
+                            Box {
+                                IconButton(onClick = { sortExpanded = true }) {
+                                    Icon(imageVector = Icons.Default.Sort, contentDescription = "Ordenar")
+                                }
+                                DropdownMenu(
+                                    expanded = sortExpanded,
+                                    onDismissRequest = { sortExpanded = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("Mais recentes") },
+                                        onClick = {
+                                            sortMode = SortMode.DATA
+                                            sortExpanded = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text("Maior valor") },
+                                        onClick = {
+                                            sortMode = SortMode.VALOR
+                                            sortExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Preparar lista ordenada conforme modo
+                        val despesasOrdenadas: List<DespesaDetalhada> = when (sortMode) {
+                            SortMode.DATA -> uiState.despesasDoMes.sortedByDescending { it.dataCompra } // mais recentes primeiro
+                            SortMode.VALOR -> uiState.despesasDoMes.sortedByDescending { it.valor } // maior valor primeiro
+                        }
+
+// Agrupar por LocalDate (UTC) para mostrar cabeçalhos "28 de julho", etc.
+                        val despesasPorDia: Map<java.time.LocalDate, List<DespesaDetalhada>> =
+                            despesasOrdenadas.groupBy { desp ->
+                                Instant.ofEpochMilli(desp.dataCompra)
+                                    .atZone(ZoneOffset.UTC)
+                                    .toLocalDate()
+                            }
+
+// Dias em ordem (mais recentes primeiro)
+                        val diasOrdenados = despesasPorDia.keys.sortedDescending()
+
+                        // render por dia
+                        diasOrdenados.forEach { dia ->
+                            val listaDoDia = despesasPorDia[dia].orEmpty()
+                            // cabeçalho da data
+                            Text(
+                                text = dia.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(vertical = 6.dp)
+                            )
+
+                            // cada lançamento do dia
+                            listaDoDia.forEach { desp ->
+                                // componente do card do lançamento
+                                LancamentoItem(
+                                    despesa = desp,
+                                    cartoes = uiState.cartoes,
+                                    onLongPress = { despesaParaExcluir = desp },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        }
+                    }
+                }
             }
+        }
+    }
+
+}
+
+private enum class SortMode {
+    DATA,
+    VALOR
+}
+
+@Composable
+private fun LancamentoItem(
+    despesa: DespesaDetalhada,
+    cartoes: List<Cartao>,
+    onLongPress: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .combinedClickable(
+                onClick = {},
+                onLongClick = { onLongPress?.invoke() },
+                role = Role.Button
+            ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // ícone da categoria — tenta usar drawable/iconeChave presente na categoria cadastrado
+            // OBS: DespesaDetalhada atualmente NÃO contém iconeChave; se você mapeou a projeção para
+            // incluir icone da categoria (recomendo), substitua `categoriaIconeChave` pelo campo correto.
+            // Aqui uso o nome da categoria para derivar chave (fallback).
+            IconeCategoriaPill(
+                iconeChave = chaveDaCategoriaAPartirDoNome(despesa.categoriaNome),
+                corHex = despesa.categoriaCorHex
+            )
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = despesa.descricao,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = CorTextoGastos,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = despesa.categoriaNome,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    // badge pequena do cartao (marcaChave inicial ou sigla)
+                    val cartao = cartoes.firstOrNull { it.id == despesa.cartaoId }
+                    if (cartao != null) {
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 6.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFECEFF0))
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = cartao.marcaChave.takeIf { it.isNotBlank() }?.let {
+                                    // exibir apenas sigla curta (ex.: "NU", "C6")
+                                    it.uppercase().take(2)
+                                } ?: cartao.nome.firstOrNull()?.toString() ?: "",
+                                color = Color(0xFF123C3A),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Text(
+                text = despesa.valor.formatarMoeda(),
+                color = CorTextoGastos,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
 
 @Composable
-private fun IconeCategoriaPill(nomeCategoria: String, corHex: String) {
-    val chavePossivel = chaveDaCategoriaAPartirDoNome(nomeCategoria)
+private fun IconeCategoriaPill(
+    iconeChave: String?,
+    corHex: String
+) {
+    val chave = iconeChave ?: ""
     val context = LocalContext.current
-    val resId = remember(chavePossivel) {
-        context.resources.getIdentifier(chavePossivel, "drawable", context.packageName)
+    val resId = remember(chave) {
+        if (chave.isBlank()) 0 else context.resources.getIdentifier(chave, "drawable", context.packageName)
     }
 
     val cor = try {
@@ -409,18 +616,30 @@ private fun IconeCategoriaPill(nomeCategoria: String, corHex: String) {
     }
 
     if (resId != 0) {
-        // drawable encontrado
         Icon(
             painter = painterResource(id = resId),
-            contentDescription = nomeCategoria,
+            contentDescription = null,
             tint = Color.Unspecified,
             modifier = Modifier
-                .size(20.dp)
-                .background(cor.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp))
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(cor.copy(alpha = 0.12f))
                 .padding(6.dp)
         )
+    } else if (chave.isNotBlank() && chave.any { it.code > 255 }) {
+        // emoji
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(cor.copy(alpha = 0.12f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = chave, fontSize = 18.sp)
+        }
     } else {
-        // usa vector icon mapeado por chave fallback
+        // fallback para ícone vetorial mapeado a partir da chave (ou name derivado)
+        val chaveDerivada = if (chave.isNotBlank()) chave else chaveDaCategoriaAPartirDoNome("")
         Box(
             modifier = Modifier
                 .size(36.dp)
@@ -429,13 +648,18 @@ private fun IconeCategoriaPill(nomeCategoria: String, corHex: String) {
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = iconeCategoria(chavePossivel),
-                contentDescription = nomeCategoria,
+                imageVector = iconeCategoria(chaveDerivada),
+                contentDescription = null,
                 tint = cor,
                 modifier = Modifier.size(18.dp)
             )
         }
     }
+}
+
+// extensão local para emoji (adapte do EdicaoScreen)
+private fun String?.ehEmoji(): Boolean {
+    return this?.any { caractere -> caractere.code > 255 } ?: false
 }
 
 private fun chaveDaCategoriaAPartirDoNome(nome: String): String {
@@ -927,4 +1151,3 @@ private fun String.toComposeColor(): Color {
         CorGastos
     }
 }
-

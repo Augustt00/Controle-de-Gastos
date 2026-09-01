@@ -15,6 +15,9 @@ data class CategoriaSomaTuple(
     @ColumnInfo(name = "teto_mensal")
     val tetoMensal: Long?,
 
+    @ColumnInfo(name = "categoria_icone_chave")
+    val categoriaIconeChave: String?,
+
     @ColumnInfo(name = "total_centavos")
     val totalCentavos: Long
 )

@@ -177,7 +177,8 @@ class DespesaRepositoryImpl @Inject constructor(
                                 .times(100f)
                         } else {
                             0f
-                        }
+                        },
+                        iconeChave = categoria.categoriaIconeChave // novo
                     )
                 }
             }
@@ -495,6 +496,7 @@ class DespesaRepositoryImpl @Inject constructor(
             categoriaId = categoria.id,
             categoriaNome = categoria.nome,
             categoriaCorHex = categoria.corHex,
+            categoriaIconeChave = categoria.iconeChave, // <-- NOVO: propaga o icone salvo na categoria
             cartaoId = despesa.cartaoId,
             contaSaldoId = despesa.contaSaldoId,
             tipoLancamento = runCatching {

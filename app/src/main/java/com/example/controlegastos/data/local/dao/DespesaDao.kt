@@ -56,7 +56,7 @@ interface DespesaDao {
             c.ativa AS categoria_ativa
 
         FROM tb_despesas d
-        INNER JOIN tb_categorias c ON c.id = d.categoria_id
+        LEFT JOIN tb_categorias c ON c.id = d.categoria_id
 
         WHERE d.data_compra >= (
             CAST(
@@ -91,6 +91,7 @@ interface DespesaDao {
             c.nome AS categoria_nome,
             c.cor_hex AS categoria_cor_hex,
             c.teto_mensal AS teto_mensal,
+            c.icone_chave AS categoria_icone_chave,
             COALESCE(SUM(d.valor), 0) AS total_centavos
 
         FROM tb_despesas d
@@ -98,23 +99,17 @@ interface DespesaDao {
 
         WHERE d.data_compra >= (
             CAST(
-                strftime(
-                    '%s',
-                    printf('%04d-%02d-01', :ano, :mes)
-                ) AS INTEGER
+                strftime('%s', printf('%04d-%02d-01', :ano, :mes)) AS INTEGER
             ) * 1000
         )
         AND d.data_compra < (
             CAST(
-                strftime(
-                    '%s',
-                    printf('%04d-%02d-01', :ano, :mes),
-                    '+1 month'
-                ) AS INTEGER
+                strftime('%s', printf('%04d-%02d-01', :ano, :mes), '+1 month') AS INTEGER
             ) * 1000
         )
 
-        GROUP BY c.id, c.nome, c.cor_hex
+        GROUP BY c.id, c.nome, c.cor_hex, c.icone_chave, c.teto_mensal
+        HAVING COALESCE(SUM(d.valor), 0) > 0
         ORDER BY total_centavos DESC
         """
     )
@@ -422,24 +417,17 @@ interface DespesaDao {
             c.ativa AS categoria_ativa
 
         FROM tb_despesas d
-        INNER JOIN tb_categorias c ON c.id = d.categoria_id
+        LEFT JOIN tb_categorias c ON c.id = d.categoria_id
 
         WHERE d.status_pago = 0
         AND d.data_compra >= (
             CAST(
-                strftime(
-                    '%s',
-                    printf('%04d-%02d-01', :ano, :mes)
-                ) AS INTEGER
+                strftime('%s', printf('%04d-%02d-01', :ano, :mes)) AS INTEGER
             ) * 1000
         )
         AND d.data_compra < (
             CAST(
-                strftime(
-                    '%s',
-                    printf('%04d-%02d-01', :ano, :mes),
-                    '+1 month'
-                ) AS INTEGER
+                strftime('%s', printf('%04d-%02d-01', :ano, :mes), '+1 month') AS INTEGER
             ) * 1000
         )
 
