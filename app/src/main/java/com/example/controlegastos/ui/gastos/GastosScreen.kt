@@ -100,6 +100,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.controlegastos.domain.model.Cartao
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 
 private val CorGastos = Color(0xFF5F8D84)
 private val CorGastosClara = Color(0xFF9DBCB5)
@@ -350,58 +352,111 @@ fun GastosScreen(
 
                                 Spacer(modifier = Modifier.height(4.dp))
 
-                                // lista dinâmica de categorias
-                                uiState.gastosPorCategoria.forEach { gasto ->
-                                    Column {
-                                        Row(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(vertical = 8.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            IconeCategoriaPill(
-                                                iconeChave = gasto.iconeChave,
-                                                corHex = gasto.corHex
-                                            )
+                                // lista dinâmica de categorias (com porcentagens que somam 100% e barra contínua)
+                                val categorias = uiState.gastosPorCategoria
+                                val totalCentavos = categorias.sumOf { it.totalGasto }
 
-                                            Spacer(modifier = Modifier.width(12.dp))
+                                if (categorias.isNotEmpty()) {
+                                    // calcula porcentagens reais (float)
+                                    val rawPercents = categorias.map { gasto ->
+                                        if (totalCentavos > 0L) {
+                                            gasto.totalGasto.toFloat() / totalCentavos.toFloat() * 100f
+                                        } else {
+                                            0f
+                                        }
+                                    }
 
-                                            Text(
-                                                text = gasto.nomeCategoria,
-                                                modifier = Modifier.weight(1f),
-                                                color = CorTextoGastos,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
+                                    // converte para inteiros por floor e distribui o resto para somar 100
+                                    val floorInts = rawPercents.map { kotlin.math.floor(it).toInt() }.toMutableList()
+                                    var diff = 100 - floorInts.sum()
+                                    if (diff > 0) {
+                                        // calcula as "frações" para decidir onde dar +1
+                                        val remainders = rawPercents.mapIndexed { idx, v -> idx to (v - kotlin.math.floor(v)) }
+                                            .sortedByDescending { it.second }
+                                        var i = 0
+                                        while (diff > 0 && i < remainders.size) {
+                                            floorInts[remainders[i].first] = floorInts[remainders[i].first] + 1
+                                            diff--
+                                            i++
+                                        }
+                                    }
 
-                                            Spacer(modifier = Modifier.width(8.dp))
+                                    // renderiza cada categoria usando índices
+                                    categorias.forEachIndexed { index, gasto ->
+                                        val percentualReal = rawPercents.getOrNull(index) ?: 0f
+                                        val percentualAjustado = floorInts.getOrNull(index) ?: 0
 
-                                            Column(horizontalAlignment = Alignment.End) {
-                                                Text(
-                                                    text = gasto.totalGasto.formatarMoeda(),
-                                                    color = CorTextoGastos,
-                                                    style = MaterialTheme.typography.bodyMedium,
-                                                    fontWeight = FontWeight.Bold
+                                        Column {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                // ícone de categoria (usa iconeChave quando disponível)
+                                                IconeCategoriaPill(
+                                                    iconeChave = gasto.iconeChave,
+                                                    corHex = gasto.corHex
                                                 )
+
+                                                Spacer(modifier = Modifier.width(12.dp))
+
+                                                // nome categoria
                                                 Text(
-                                                    text = "${gasto.percentualDoTotal.toInt()}%",
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    style = MaterialTheme.typography.labelSmall
+                                                    text = gasto.nomeCategoria,
+                                                    modifier = Modifier.weight(1f),
+                                                    color = CorTextoGastos,
+                                                    style = MaterialTheme.typography.bodyMedium
+                                                )
+
+                                                Spacer(modifier = Modifier.width(8.dp))
+
+                                                // valor e percentual ajustado (exibe inteiro que soma 100)
+                                                Column(horizontalAlignment = Alignment.End) {
+                                                    Text(
+                                                        text = gasto.totalGasto.formatarMoeda(),
+                                                        color = CorTextoGastos,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                    // porcentagem em cinza (onSurfaceVariant)
+                                                    Text(
+                                                        text = "${percentualAjustado}%",
+                                                        color = Color(0xFF78909C),
+                                                        style = MaterialTheme.typography.labelSmall
+                                                    )
+                                                }
+                                            }
+
+                                            // barra contínua proporcional ao percentual real (animada)
+                                            val fraction = (percentualReal / 100f).coerceIn(0f, 1f)
+                                            val animatedFraction by animateFloatAsState(
+                                                targetValue = fraction,
+                                                animationSpec = tween(durationMillis = 600)
+                                            )
+
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(8.dp)
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant) // track
+                                            ) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth(animatedFraction)
+                                                        .height(8.dp)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(gasto.corHex.toComposeColor()) // filled portion
                                                 )
                                             }
+
+                                            Spacer(modifier = Modifier.height(8.dp))
                                         }
-
-                                        LinearProgressIndicator(
-                                            progress = (gasto.percentualDoTotal.coerceIn(0f, 100f)) / 100f,
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(6.dp)
-                                                .clip(RoundedCornerShape(6.dp)),
-                                            color = gasto.corHex.toComposeColor(),
-                                            trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                        )
-
-                                        Spacer(modifier = Modifier.height(8.dp))
                                     }
+                                } else {
+                                    // sem categorias: manter um espaço (ou mensagem)
+                                    Spacer(modifier = Modifier.height(8.dp))
                                 }
                             }
                         }
@@ -525,20 +580,25 @@ fun GastosScreen(
                             SortMode.VALOR -> uiState.despesasDoMes.sortedByDescending { it.valor } // maior valor primeiro
                         }
 
-// Agrupar por LocalDate (UTC) para mostrar cabeçalhos "28 de julho", etc.
-                        val despesasPorDia: Map<java.time.LocalDate, List<DespesaDetalhada>> =
-                            despesasOrdenadas.groupBy { desp ->
-                                Instant.ofEpochMilli(desp.dataCompra)
-                                    .atZone(ZoneOffset.UTC)
-                                    .toLocalDate()
-                            }
+                        // Agrupar por LocalDate (UTC) para mostrar cabeçalhos "28 de julho", etc.
+                        fun dateOf(d: DespesaDetalhada) = Instant.ofEpochMilli(d.dataCompra).atZone(ZoneOffset.UTC).toLocalDate()
 
-// Dias em ordem (mais recentes primeiro)
-                        val diasOrdenados = despesasPorDia.keys.sortedDescending()
+                        val despesasPorDia: Map<java.time.LocalDate, List<DespesaDetalhada>> =
+                            despesasOrdenadas.groupBy { desp -> dateOf(desp) }
+
+// Dias em ordem:
+// - se ordenar por DATA: dias ordenados por data desc (comportamento antigo)
+// - se ordenar por VALOR: usamos a ordem dos dias conforme aparecem em despesasOrdenadas (garante dia do maior valor primeiro)
+                        val diasOrdenados: List<java.time.LocalDate> = if (sortMode == SortMode.DATA) {
+                            despesasPorDia.keys.sortedDescending()
+                        } else {
+                            // mantém a ordem de aparição na lista ordenada por valor e remove duplicatas mantendo ordem
+                            despesasOrdenadas.map { dateOf(it) }.distinct()
+                        }
 
                         // render por dia
                         diasOrdenados.forEach { dia ->
-                            val listaDoDia = despesasPorDia[dia].orEmpty()
+                            val listaDoDia = despesasOrdenadas.filter { dateOf(it) == dia }
                             // cabeçalho da data
                             Text(
                                 text = dia.format(DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("pt", "BR"))),
