@@ -109,11 +109,35 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.window.Popup
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.Divider
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.Autorenew
+import androidx.compose.material.icons.automirrored.outlined.List
+import androidx.compose.material.icons.outlined.Toll
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.foundation.shape.CircleShape
 
 @Composable
 fun InserirDespesaScreen(
@@ -140,62 +164,83 @@ fun InserirDespesaScreen(
     }
 
     Scaffold(
+        containerColor = Color(0xFFF2F5F1),
         topBar = {
-            TopAppBar(
-                title = {
-                    Column(
-                        modifier = Modifier.padding(start = 8.dp),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Text(
-                            text = "Nova despesa",
-                            color = Color(0xFF0A1B3F),
-                            style = MaterialTheme.typography.titleLarge.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 22.sp
-                            )
-                        )
-                        Text(
-                            text = "Insira suas despesas aqui",
-                            color = Color(0xFF6B7280),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                },
-                navigationIcon = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFFEEF2EF))
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(10.dp),
                         color = Color.White,
                         tonalElevation = 0.dp,
-                        border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = Color(0xFFE6EFEA)
+                        ),
                         modifier = Modifier
-                            .padding(start = 16.dp)
-                            .size(44.dp)
+                            .size(40.dp)
                             .clickable { onVoltar() }
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Voltar",
-                                tint = Color(0xFF0A1B3F),
-                                modifier = Modifier.size(24.dp)
+                                tint = Color(0xFF2F6F62),
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = "Nova despesa",
+                            color = Color(0xFF123C3A),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        Spacer(modifier = Modifier.height(2.dp))
+
+                        Text(
+                            text = "Insira suas despesas aqui",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
-            )
+            }
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState
+            )
+        }
     ) { innerPadding ->
         FormularioDespesa(
             uiState = uiState,
             onValorAlterado = viewModel::atualizarValor,
+            focusRequester = focusRequester,
             onFormaPagamentoSelecionada = viewModel::selecionarCartao,
             onDescricaoAlterada = viewModel::atualizarDescricao,
             onCategoriaSelecionada = viewModel::selecionarCategoria,
             onDataSelecionada = viewModel::atualizarDataCompra,
             onQuantidadeParcelasAlterada = viewModel::atualizarQuantidadeParcelas,
             onSalvar = viewModel::salvarDespesa,
+            onTipoLancamentoAlterado = viewModel::alterarTipoLancamento,
             modifier = Modifier.padding(innerPadding)
         )
     }
@@ -205,14 +250,21 @@ fun InserirDespesaScreen(
 private fun FormularioDespesa(
     uiState: InserirDespesaUiState,
     onValorAlterado: (String) -> Unit,
+    focusRequester: FocusRequester,
     onDescricaoAlterada: (String) -> Unit,
     onCategoriaSelecionada: (Int) -> Unit,
     onFormaPagamentoSelecionada: (Int?) -> Unit,
     onDataSelecionada: (LocalDate) -> Unit,
     onQuantidadeParcelasAlterada: (String) -> Unit,
+    onTipoLancamentoAlterado: (TipoLancamento) -> Unit,
     onSalvar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+
+    var recorrencia by remember { mutableStateOf("Mensal") }
+    val valorCentavos = uiState.valorTexto.toLongOrNull() ?: 0L
+    val qtdParcelas = uiState.quantidadeParcelas.toString().toIntOrNull() ?: 1
+
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -222,33 +274,14 @@ private fun FormularioDespesa(
             ValorCard(
                 valorTexto = uiState.valorTexto,
                 onValorAlterado = onValorAlterado,
+                categoriaNome = uiState.categoriaSelecionada?.nome,
+                categoriaIconeChave = uiState.categoriaSelecionada?.iconeChave,
+                cartaoNome = uiState.cartaoSelecionado?.nome,
+                cartaoMarcaChave = uiState.cartaoSelecionado?.marcaChave,
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
-        if (uiState.tipoLancamento == TipoLancamento.PARCELADA) {
-            item {
-                OutlinedTextField(
-                    value = uiState.quantidadeParcelas.toString(),
-                    onValueChange = onQuantidadeParcelasAlterada,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Quantidade de parcelas") },
-                    suffix = { Text("x") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true
-                )
-            }
-        }
-
-        if (uiState.tipoLancamento == TipoLancamento.FIXA) {
-            item {
-                Text(
-                    text = "Esta despesa será repetida por 12 meses.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
 
         item {
             DetalhesCard(
@@ -294,30 +327,58 @@ private fun FormularioDespesa(
                 )
             }
         }
+        item {
+            TipoLancamentoSelector(
+                tipoSelecionado = uiState.tipoLancamento,
+                onTipoSelecionado = onTipoLancamentoAlterado,
+                valorCentavos = valorCentavos,
+                quantidadeParcelas = qtdParcelas,
+                onQuantidadeParcelasAlterada = onQuantidadeParcelasAlterada,
+                recorrencia = recorrencia,
+                onRecorrenciaAlterada = { recorrencia = it }
+            )
+        }
 
         item {
+            // Lógica dinâmica do texto do botão
+            val textoBotao = when (uiState.tipoLancamento) {
+                TipoLancamento.UNICA -> "Salvar despesa"
+                TipoLancamento.PARCELADA -> {
+                    val valorPorParcela = if (qtdParcelas > 0) valorCentavos / qtdParcelas else 0L
+                    "Registrar em ${qtdParcelas}x de ${formatarCentavosParaMoeda(valorPorParcela)}"
+                }
+                TipoLancamento.FIXA -> "Despesa fixa · ${recorrencia.lowercase()}"
+            }
+
             Button(
                 onClick = onSalvar,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp), // Botão um pouco mais alto, como na imagem
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF225F44),
+                    disabledContainerColor = Color(0xFF225F44).copy(alpha = 0.5f)
+                ),
                 enabled = !uiState.salvando && !uiState.carregandoCategorias
             ) {
                 if (uiState.salvando) {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(20.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.size(24.dp),
+                        color = Color.White,
                         strokeWidth = 2.dp
                     )
                 } else {
                     Text(
-                        text = if (uiState.tipoLancamento == TipoLancamento.PARCELADA) {
-                            "Salvar compra parcelada"
-                        } else {
-                            "Salvar despesa"
-                        }
+                        text = textoBotao,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White
                     )
                 }
             }
         }
+
     }
 }
 
@@ -327,35 +388,69 @@ private fun FormularioDespesa(
 private fun ValorCard(
     valorTexto: String,
     onValorAlterado: (String) -> Unit,
+    categoriaNome: String?,
+    categoriaIconeChave: String?,
+    cartaoNome: String?,
+    cartaoMarcaChave: String?,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val valorFormatado = valorTexto.formatarMoedaComCursor()
     val vazio = valorTexto.isBlank() || (valorTexto.toLongOrNull() ?: 0L) == 0L
-    val textColor = if (vazio) Color(0xFF7B9B8A) else Color.White
+
+    val corInativa = Color(0xFF7B9B8A)
+    val corAtiva = Color.White
+    val textColor = if (vazio) corInativa else corAtiva
+
+    fun obterResourceIconeCartao(chave: String): Int {
+        val nomeArquivo = if (
+            chave.equals("cx", ignoreCase = true) ||
+            chave.contains("caixa", ignoreCase = true)
+        ) {
+            "cef"
+        } else {
+            chave
+        }
+
+        return context.resources.getIdentifier(
+            nomeArquivo.lowercase(),
+            "drawable",
+            context.packageName
+        )
+    }
 
     Box(
         modifier = modifier
-            .height(104.dp)
+            .defaultMinSize(minHeight = 132.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color(0xFF225F44))
     ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
+        Canvas(
+            modifier = Modifier.matchParentSize()
+        ) {
             drawCircle(
                 color = Color(0xFF296A4D),
-                radius = size.height * 0.9f,
-                center = Offset(size.width * 0.85f, size.height * 0.1f)
+                radius = size.height * 0.58f,
+                center = Offset(
+                    x = size.width * 0.91f,
+                    y = size.height * 0.08f
+                )
             )
+
             drawCircle(
-                color = Color(0xFF296A4D),
-                radius = size.height * 0.7f,
-                center = Offset(size.width, size.height * 0.9f)
+                color = Color(0xFF2C9867),
+                radius = size.height * 0.42f,
+                center = Offset(
+                    x = size.width * 0.98f,
+                    y = size.height * 0.96f
+                )
             )
         }
 
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 24.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             verticalArrangement = Arrangement.Center
         ) {
             Text(
@@ -387,11 +482,129 @@ private fun ValorCard(
                 cursorBrush = SolidColor(Color.White),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            if (categoriaNome != null || cartaoNome != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    categoriaNome?.let { nome ->
+                        Surface(
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 6.dp
+                                )
+                            ) {
+                                IconeCategoriaDoCard(
+                                    iconeChave = categoriaIconeChave.orEmpty(),
+                                    nomeCategoria = nome
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                Text(
+                                    text = nome,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+
+                    cartaoNome?.let { nome ->
+                        val resId = remember(cartaoMarcaChave) {
+                            obterResourceIconeCartao(cartaoMarcaChave.orEmpty())
+                        }
+
+                        Surface(
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 6.dp
+                                )
+                            ) {
+                                if (resId != 0) {
+                                    Image(
+                                        painter = painterResource(id = resId),
+                                        contentDescription = nome,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFF5722))
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                Text(
+                                    text = nome,
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
+@Composable
+private fun IconeCategoriaDoCard(
+    iconeChave: String,
+    nomeCategoria: String
+) {
+    val context = LocalContext.current
 
+    val resId = remember(iconeChave) {
+        context.resources.getIdentifier(
+            iconeChave.lowercase(),
+            "drawable",
+            context.packageName
+        )
+    }
+
+    when {
+        resId != 0 -> {
+            Image(
+                painter = painterResource(id = resId),
+                contentDescription = nomeCategoria,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        iconeChave.ehEmoji() -> {
+            Text(
+                text = iconeChave,
+                fontSize = 16.sp
+            )
+        }
+
+        else -> {
+            Icon(
+                imageVector = iconeCategoria(iconeChave),
+                contentDescription = nomeCategoria,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+    }
+}
 @Composable
 private fun SeletorCategoria(
     uiState: InserirDespesaUiState,
@@ -1184,6 +1397,433 @@ private fun iconeCategoria(chave: String): ImageVector {
     }
 }
 
+@Composable
+private fun TipoLancamentoSelector(
+    tipoSelecionado: TipoLancamento,
+    onTipoSelecionado: (TipoLancamento) -> Unit,
+    valorCentavos: Long,
+    quantidadeParcelas: Int,
+    onQuantidadeParcelasAlterada: (String) -> Unit,
+    recorrencia: String,
+    onRecorrenciaAlterada: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Text(
+            text = "TIPO DE LANÇAMENTO",
+            style = MaterialTheme.typography.labelSmall,
+            color = Color(0xFF6B7280),
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(
+                start = 4.dp,
+                bottom = 8.dp
+            )
+        )
+
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            border = BorderStroke(
+                width = 1.dp,
+                color = Color(0xFFE5E7EB)
+            ),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(72.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    @Composable
+                    fun Segment(
+                        tipo: TipoLancamento,
+                        icon: @Composable () -> Unit,
+                        label: String,
+                        sublabel: String,
+                        isStart: Boolean = false,
+                        isEnd: Boolean = false
+                    ) {
+                        val selecionado = tipoSelecionado == tipo
+
+                        val shape = when {
+                            selecionado && isStart -> {
+                                RoundedCornerShape(
+                                    topStart = 12.dp,
+                                    bottomStart = if (
+                                        tipoSelecionado == TipoLancamento.UNICA
+                                    ) {
+                                        12.dp
+                                    } else {
+                                        0.dp
+                                    }
+                                )
+                            }
+
+                            selecionado && isEnd -> {
+                                RoundedCornerShape(
+                                    topEnd = 12.dp,
+                                    bottomEnd = 0.dp
+                                )
+                            }
+
+                            else -> RoundedCornerShape(0.dp)
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(shape)
+                                .background(
+                                    if (selecionado) {
+                                        Color(0xFF225F44)
+                                    } else {
+                                        Color.Transparent
+                                    }
+                                )
+                                .clickable {
+                                    onTipoSelecionado(tipo)
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                CompositionLocalProvider(
+                                    LocalContentColor provides if (selecionado) {
+                                        Color.White
+                                    } else {
+                                        Color(0xFF9CA3AF)
+                                    }
+                                ) {
+                                    icon()
+
+                                    Spacer(
+                                        modifier = Modifier.height(4.dp)
+                                    )
+
+                                    Text(
+                                        text = label,
+                                        color = if (selecionado) {
+                                            Color.White
+                                        } else {
+                                            Color(0xFF1F2937)
+                                        },
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 14.sp
+                                    )
+
+                                    Spacer(
+                                        modifier = Modifier.height(2.dp)
+                                    )
+
+                                    Text(
+                                        text = sublabel,
+                                        color = if (selecionado) {
+                                            Color.White.copy(alpha = 0.8f)
+                                        } else {
+                                            Color(0xFF9CA3AF)
+                                        },
+                                        style = MaterialTheme.typography.bodySmall,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Segment(
+                        tipo = TipoLancamento.UNICA,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Toll,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        label = "Única",
+                        sublabel = "1x",
+                        isStart = true
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .fillMaxHeight()
+                            .background(Color(0xFFF3F4F6))
+                    )
+
+                    Segment(
+                        tipo = TipoLancamento.PARCELADA,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.List,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        label = "Parcelada",
+                        sublabel = "2x+"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .fillMaxHeight()
+                            .background(Color(0xFFF3F4F6))
+                    )
+
+                    Segment(
+                        tipo = TipoLancamento.FIXA,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Autorenew,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        label = "Fixa",
+                        sublabel = "∞",
+                        isEnd = true
+                    )
+                }
+
+                if (tipoSelecionado != TipoLancamento.UNICA) {
+                    HorizontalDivider(
+                        color = Color(0xFFF3F4F6),
+                        thickness = 1.dp
+                    )
+
+                    when (tipoSelecionado) {
+                        TipoLancamento.PARCELADA -> {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                val valorPorParcela = if (quantidadeParcelas > 0) {
+                                    valorCentavos / quantidadeParcelas
+                                } else {
+                                    0L
+                                }
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = "Número de parcelas",
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.SemiBold
+                                            ),
+                                            color = Color(0xFF1F2937)
+                                        )
+
+                                        Spacer(
+                                            modifier = Modifier.height(2.dp)
+                                        )
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = "${quantidadeParcelas}x de ",
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                color = Color(0xFF6B7280)
+                                            )
+
+                                            Text(
+                                                text = formatarCentavosParaMoeda(
+                                                    valorPorParcela
+                                                ),
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    fontWeight = FontWeight.Bold
+                                                ),
+                                                color = Color(0xFF225F44)
+                                            )
+                                        }
+                                    }
+
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFF3F4F6))
+                                                .clickable {
+                                                    val novoValor = (
+                                                            quantidadeParcelas - 1
+                                                            ).coerceAtLeast(2)
+
+                                                    onQuantidadeParcelasAlterada(
+                                                        novoValor.toString()
+                                                    )
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Remove,
+                                                contentDescription = "Menos",
+                                                tint = Color(0xFF4B5563),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+
+                                        Text(
+                                            text = quantidadeParcelas.toString(),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = Color(0xFF1F2937),
+                                            modifier = Modifier.padding(horizontal = 20.dp)
+                                        )
+
+                                        Box(
+                                            modifier = Modifier
+                                                .size(28.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(Color(0xFFF3F4F6))
+                                                .clickable {
+                                                    val novoValor = (
+                                                            quantidadeParcelas + 1
+                                                            ).coerceAtMost(120)
+
+                                                    onQuantidadeParcelasAlterada(
+                                                        novoValor.toString()
+                                                    )
+                                                },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Add,
+                                                contentDescription = "Mais",
+                                                tint = Color(0xFF4B5563),
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        TipoLancamento.FIXA -> {
+                            Column(
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Text(
+                                    text = "Recorrência",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = Color(0xFF1F2937)
+                                )
+
+                                Spacer(
+                                    modifier = Modifier.height(12.dp)
+                                )
+
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    listOf(
+                                        "Semanal",
+                                        "Mensal",
+                                        "Anual"
+                                    ).forEach { opcao ->
+                                        val selecionado = recorrencia == opcao
+
+                                        Surface(
+                                            shape = RoundedCornerShape(12.dp),
+                                            color = if (selecionado) {
+                                                Color(0xFF225F44)
+                                            } else {
+                                                Color.White
+                                            },
+                                            border = if (!selecionado) {
+                                                BorderStroke(
+                                                    width = 1.dp,
+                                                    color = Color(0xFFE5E7EB)
+                                                )
+                                            } else {
+                                                null
+                                            },
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(40.dp)
+                                        ) {
+                                            TextButton(
+                                                onClick = {
+                                                    onRecorrenciaAlterada(opcao)
+                                                },
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text(
+                                                    text = opcao,
+                                                    color = if (selecionado) {
+                                                        Color.White
+                                                    } else {
+                                                        Color(0xFF6B7280)
+                                                    },
+                                                    fontWeight = if (selecionado) {
+                                                        FontWeight.SemiBold
+                                                    } else {
+                                                        FontWeight.Normal
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(
+                                    modifier = Modifier.height(16.dp)
+                                )
+
+                                val descricao = when (recorrencia) {
+                                    "Semanal" -> {
+                                        "Esse gasto será lançado automaticamente toda semana no mesmo dia da semana."
+                                    }
+
+                                    "Mensal" -> {
+                                        "Esse gasto será lançado automaticamente todo mês no mesmo dia do mês."
+                                    }
+
+                                    else -> {
+                                        "Esse gasto será lançado automaticamente todo ano na mesma data."
+                                    }
+                                }
+
+                                Text(
+                                    text = descricao,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color(0xFF9CA3AF),
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+
+                        else -> Unit
+                    }
+                }
+            }
+        }
+    }
+}
+private fun formatarCentavosParaMoeda(centavos: Long): String {
+    val formatter = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("pt", "BR"))
+    return formatter.format(centavos / 100.0)
+}
 
 private fun String.formatarMoedaComCursor(): String {
     val valorCentavos = toLongOrNull() ?: 0L
