@@ -189,13 +189,11 @@ fun InserirDespesaScreen(
     ) { innerPadding ->
         FormularioDespesa(
             uiState = uiState,
-            focusRequester = focusRequester,
             onValorAlterado = viewModel::atualizarValor,
+            onFormaPagamentoSelecionada = viewModel::selecionarCartao,
             onDescricaoAlterada = viewModel::atualizarDescricao,
             onCategoriaSelecionada = viewModel::selecionarCategoria,
-            onCartaoSelecionado = viewModel::selecionarCartao,
             onDataSelecionada = viewModel::atualizarDataCompra,
-            onTipoLancamentoAlterado = viewModel::alterarTipoLancamento,
             onQuantidadeParcelasAlterada = viewModel::atualizarQuantidadeParcelas,
             onSalvar = viewModel::salvarDespesa,
             modifier = Modifier.padding(innerPadding)
@@ -206,13 +204,11 @@ fun InserirDespesaScreen(
 @Composable
 private fun FormularioDespesa(
     uiState: InserirDespesaUiState,
-    focusRequester: FocusRequester,
     onValorAlterado: (String) -> Unit,
     onDescricaoAlterada: (String) -> Unit,
     onCategoriaSelecionada: (Int) -> Unit,
-    onCartaoSelecionado: (Int?) -> Unit,
+    onFormaPagamentoSelecionada: (Int?) -> Unit,
     onDataSelecionada: (LocalDate) -> Unit,
-    onTipoLancamentoAlterado: (TipoLancamento) -> Unit,
     onQuantidadeParcelasAlterada: (String) -> Unit,
     onSalvar: () -> Unit,
     modifier: Modifier = Modifier
@@ -276,6 +272,25 @@ private fun FormularioDespesa(
                 SeletorCategoria(
                     uiState = uiState,
                     onCategoriaSelecionada = onCategoriaSelecionada
+                )
+            }
+        }
+
+        item {
+            Column {
+                Text(
+                    text = "FORMA DE PAGAMENTO",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color(0xFF6B7280),
+                    modifier = Modifier.padding(
+                        start = 4.dp,
+                        bottom = 8.dp
+                    )
+                )
+
+                SeletorFormaPagamento(
+                    uiState = uiState,
+                    onFormaPagamentoSelecionada = onFormaPagamentoSelecionada
                 )
             }
         }
@@ -588,6 +603,212 @@ private fun SeletorCategoria(
     }
 }
 
+
+@Composable
+private fun SeletorFormaPagamento(
+    uiState: InserirDespesaUiState,
+    onFormaPagamentoSelecionada: (Int?) -> Unit
+) {
+    var aberto by remember { mutableStateOf(false) }
+
+    // Use aqui a propriedade que contém os cartões cadastrados no seu UiState.
+    // O filtro mantém somente os meios ativos/cadastrados para uso.
+    val cartoesCadastrados = remember(uiState.cartoes) {
+        uiState.cartoes.filter { it.ativo }
+    }
+
+    val context = LocalContext.current
+    val formaSelecionada = uiState.cartaoSelecionado
+    val formatoCaixa = RoundedCornerShape(14.dp)
+    val corBordaNormal = Color(0xFFD1D5DB)
+    val corBordaAberta = Color(0xFF2962FF)
+
+    fun obterResourceIcone(chave: String): Int {
+        val nomeArquivo = if (
+            chave.equals("cx", ignoreCase = true) ||
+            chave.contains("caixa", ignoreCase = true)
+        ) {
+            "cef"
+        } else {
+            chave
+        }
+
+        return context.resources.getIdentifier(
+            nomeArquivo.lowercase(),
+            "drawable",
+            context.packageName
+        )
+    }
+
+    @Composable
+    fun IconeFormaPagamento(
+        chave: String,
+        nome: String
+    ) {
+        val resId = remember(chave) {
+            obterResourceIcone(chave)
+        }
+
+        if (resId != 0) {
+            Image(
+                painter = painterResource(id = resId),
+                contentDescription = nome,
+                modifier = Modifier.size(24.dp)
+            )
+        } else {
+            Text(
+                text = nome.take(2).uppercase(),
+                color = Color(0xFF6B7280),
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp
+            )
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 4.dp,
+                    shape = formatoCaixa,
+                    clip = false
+                )
+                .clip(formatoCaixa)
+                .background(Color.White)
+                .border(
+                    width = if (aberto) 2.dp else 1.dp,
+                    color = if (aberto) corBordaAberta else corBordaNormal,
+                    shape = formatoCaixa
+                )
+                .clickable { aberto = !aberto }
+                .padding(
+                    start = 20.dp,
+                    end = 16.dp,
+                    top = 14.dp,
+                    bottom = 14.dp
+                ),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (formaSelecionada != null) {
+                    IconeFormaPagamento(
+                        chave = formaSelecionada.marcaChave,
+                        nome = formaSelecionada.nome
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                }
+
+                Text(
+                    text = formaSelecionada?.nome ?: "Selecionar forma de pagamento...",
+                    color = if (formaSelecionada == null) {
+                        Color(0xFF9CA3AF)
+                    } else {
+                        Color(0xFF1F2937)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Icon(
+                    imageVector = if (aberto) {
+                        Icons.Default.KeyboardArrowUp
+                    } else {
+                        Icons.Default.KeyboardArrowDown
+                    },
+                    contentDescription = if (aberto) {
+                        "Fechar formas de pagamento"
+                    } else {
+                        "Abrir formas de pagamento"
+                    },
+                    tint = Color(0xFF374151),
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+
+        if (aberto) {
+            Popup(
+                alignment = Alignment.TopStart,
+                onDismissRequest = { aberto = false },
+                properties = PopupProperties(
+                    focusable = true,
+                    dismissOnClickOutside = true,
+                    dismissOnBackPress = true
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 68.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(14.dp),
+                            clip = false
+                        )
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color.White)
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFFE5E7EB),
+                            shape = RoundedCornerShape(14.dp)
+                        )
+                ) {
+                    if (cartoesCadastrados.isEmpty()) {
+                        Text(
+                            text = "Nenhuma forma de pagamento cadastrada",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(18.dp),
+                            color = Color(0xFF6B7280),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        cartoesCadastrados.forEachIndexed { index, cartao ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onFormaPagamentoSelecionada(cartao.id)
+                                        aberto = false
+                                    }
+                                    .padding(
+                                        horizontal = 24.dp,
+                                        vertical = 14.dp
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconeFormaPagamento(
+                                    chave = cartao.marcaChave,
+                                    nome = cartao.nome
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                Text(
+                                    text = cartao.nome,
+                                    color = Color(0xFF1F2937),
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                            }
+
+                            if (index < cartoesCadastrados.lastIndex) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 18.dp),
+                                    thickness = 1.dp,
+                                    color = Color(0xFFE5E7EB)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun DetalhesCard(
