@@ -2,6 +2,7 @@
 
 package com.example.controlegastos.ui.transacoes
 
+import android.R.attr.text
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -85,11 +86,16 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.ui.window.Dialog
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.draw.blur
 
-
-
-
-private val CorFundoApp = Color(0xFFF3F7F2)
+private val CorFundoApp = Color(0xFFECF0ED)
 private val CorPrincipal = Color(0xFF5F8D84)
 private val CorTexto = Color(0xFF123C3A)
 private val CorFundoSaldo = Color(0xFFE1EBE7)
@@ -102,7 +108,7 @@ private val CorReceitaValor = Color(0xFF75E2A8)
 private val CorDespesaValor = Color(0xFFFF9E80)
 private val CorFundoIconeReceita = Color(0xFF1B4D3E)
 private val CorFundoIconeDespesa = Color(0xFF503431)
-
+val CorConfirmarPagamento = Color(0xFF225E43)
 @Composable
 fun TransacoesScreen(
     onVoltar: () -> Unit,
@@ -128,225 +134,258 @@ fun TransacoesScreen(
         it.tipo != TipoContaSaldo.SALDO_RESERVADO
     }
 
-    Scaffold(
-        containerColor = CorFundoApp,
-        topBar = {
-            TopBarTransacoes(
-                onVoltar = onVoltar,
-                onToggleValores = viewModel::alternarValores,
-                valoresVisiveis = uiState.valoresVisiveis
-            )
-        },
-        snackbarHost = {
-            SnackbarHost(snackbarHostState)
-        }
-    ) { padding ->
-        LazyColumn(
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        Scaffold(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item(key = "mes") {
-                SeletorMes(
-                    mes = uiState.mesSelecionado,
-                    onAnterior = viewModel::mesAnterior,
-                    onProximo = viewModel::proximoMes
+                .blur(
+                    radius = if (faturaParaPagar != null) 10.dp else 0.dp
+                ),
+            containerColor = CorFundoApp,
+            topBar = {
+                TopBarTransacoes(
+                    onVoltar = onVoltar,
+                    onToggleValores = viewModel::alternarValores,
+                    valoresVisiveis = uiState.valoresVisiveis
                 )
+            },
+            snackbarHost = {
+                SnackbarHost(snackbarHostState)
             }
-
-            item(key = "saldo") {
-                CardSaldoPrincipal(
-                    saldoAtual = uiState.saldoAtualTotal,
-                    saldoInicial = uiState.saldoInicialTotal,
-                    despesas = uiState.despesasAvulsasTotal,
-                    visivel = uiState.valoresVisiveis
-                )
-            }
-
-            item(key = "titulo_contas") {
-                TituloSecao(texto = "Contas")
-            }
-
-            items(
-                items = uiState.contas,
-                key = { "conta_${it.id}" }
-            ) { conta ->
-                CardConta(
-                    conta = conta,
-                    visivel = uiState.valoresVisiveis
-                )
-            }
-            // calcular total e adicionar item de sumário
-            val totalContas = uiState.contas.sumOf { it.saldoCentavos }
-
-            item(key = "total_em_contas") {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    color = Color(0xFFE9EFEA), // Cor de fundo verde bem clarinho
-                    border = BorderStroke(1.dp, Color(0xFFD4E0D8)) // Borda sutil um pouco mais escura
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 14.dp), // Espaçamento interno
-                        horizontalArrangement = Arrangement.SpaceBetween, // Joga um item pra cada lado
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Total em contas",
-                            color = Color(0xFF0F5A4A), // Verde escuro da imagem
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 15.sp // Ajuste fino do tamanho da fonte
-                            ),
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        // Variável dinâmica colocada no lugar correto
-                        Text(
-                            text = totalContas.formatarMoeda(true),
-                            color = Color(0xFF0F5A4A),
-                            style = MaterialTheme.typography.bodyLarge.copy(
-                                fontSize = 15.sp
-                            ),
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+        ) { padding ->
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item(key = "mes") {
+                    SeletorMes(
+                        mes = uiState.mesSelecionado,
+                        onAnterior = viewModel::mesAnterior,
+                        onProximo = viewModel::proximoMes
+                    )
                 }
-            }
 
-            item(key = "titulo_cartoes") {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    TituloSecao(texto = "Cartão de crédito")
-                    Spacer(Modifier.weight(1f))
-                    // Badge no canto direito com total de faturas abertas
-                    val abertosCount = uiState.faturasAbertas.size
-                    val totalAbertos = uiState.faturasAbertas.sumOf { it.totalCentavos }
+                item(key = "saldo") {
+                    CardSaldoPrincipal(
+                        saldoAtual = uiState.saldoAtualTotal,
+                        saldoInicial = uiState.saldoInicialTotal,
+                        despesas = uiState.despesasAvulsasTotal,
+                        visivel = uiState.valoresVisiveis
+                    )
+                }
+
+                item(key = "titulo_contas") {
+                    TituloSecao(texto = "Contas")
+                }
+
+                items(
+                    items = uiState.contas,
+                    key = { "conta_${it.id}" }
+                ) { conta ->
+                    CardConta(
+                        conta = conta,
+                        visivel = uiState.valoresVisiveis
+                    )
+                }
+
+                val totalContas = uiState.contas.sumOf { it.saldoCentavos }
+
+                item(key = "total_em_contas") {
                     Surface(
-                        shape = RoundedCornerShape(20.dp),
-                        color = Color(0xFFFFF4F2), // fundo levemente avermelhado
-                        border = BorderStroke(1.dp, Color(0xFFFFD6CF)),
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = Color(0xFFE9EFEA),
+                        border = BorderStroke(
+                            width = 1.dp,
+                            color = Color(0xFFD4E0D8)
+                        )
                     ) {
-                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = "$abertosCount fatura(s) em aberto", color = Color(0xFFB33A27), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = 16.dp,
+                                    vertical = 14.dp
+                                ),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Total em contas",
+                                color = Color(0xFF0F5A4A),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontSize = 15.sp
+                                ),
+                                fontWeight = FontWeight.Bold
+                            )
+
+                            Text(
+                                text = totalContas.formatarMoeda(true),
+                                color = Color(0xFF0F5A4A),
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontSize = 15.sp
+                                ),
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
-            }
 
-            item(key = "abas_faturas") {
-                AbasFaturas(
-                    selecionada = uiState.abaSelecionada,
-                    onSelecionar = viewModel::selecionarAbaFaturas,
-                    abertosCount = uiState.faturasAbertas.size,
-                    fechadosCount = uiState.faturasFechadas.size
-                )
-            }
+                item(key = "titulo_cartoes") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TituloSecao(texto = "Cartão de crédito")
 
-            item(key = "total_faturas") {
-                CardTotalFaturas(
-                    total = totalFaturas,
-                    quantidade = faturas.size,
-                    visivel = uiState.valoresVisiveis,
-                    aba = uiState.abaSelecionada
-                )
-            }
+                        Spacer(modifier = Modifier.weight(1f))
 
-            if (faturas.isEmpty()) {
-                item(key = "faturas_vazias") {
-                    TextoVazio(
-                        texto = if (uiState.abaSelecionada == AbaFaturas.ABERTAS) {
-                            "Nenhuma fatura aberta neste mês."
-                        } else {
-                            "Nenhuma fatura fechada neste mês."
+                        val abertosCount = uiState.faturasAbertas.size
+
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFFFFF4F2),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = Color(0xFFFFD6CF)
+                            ),
+                            modifier = Modifier.padding(start = 8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(
+                                    horizontal = 10.dp,
+                                    vertical = 6.dp
+                                ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "$abertosCount fatura(s) em aberto",
+                                    color = Color(0xFFB33A27),
+                                    fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item(key = "abas_faturas") {
+                    AbasFaturas(
+                        selecionada = uiState.abaSelecionada,
+                        onSelecionar = viewModel::selecionarAbaFaturas,
+                        abertosCount = uiState.faturasAbertas.size,
+                        fechadosCount = uiState.faturasFechadas.size
+                    )
+                }
+
+                item(key = "total_faturas") {
+                    CardTotalFaturas(
+                        total = totalFaturas,
+                        quantidade = faturas.size,
+                        visivel = uiState.valoresVisiveis,
+                        aba = uiState.abaSelecionada
+                    )
+                }
+
+                if (faturas.isEmpty()) {
+                    item(key = "faturas_vazias") {
+                        TextoVazio(
+                            texto = if (
+                                uiState.abaSelecionada == AbaFaturas.ABERTAS
+                            ) {
+                                "Nenhuma fatura aberta neste mês."
+                            } else {
+                                "Nenhuma fatura fechada neste mês."
+                            }
+                        )
+                    }
+                }
+
+                items(
+                    items = faturas,
+                    key = {
+                        "fatura_${uiState.abaSelecionada}_${it.cartao.id}_${it.mesAno}"
+                    }
+                ) { fatura ->
+                    CardFaturaCompleta(
+                        fatura = fatura,
+                        expandida = fatura.cartao.id in uiState.cartoesExpandidos,
+                        visivel = uiState.valoresVisiveis,
+                        onExpandir = {
+                            viewModel.alternarCartao(fatura.cartao.id)
+                        },
+                        onPagar = {
+                            faturaParaPagar = fatura
+                            contaSelecionada = null
                         }
                     )
                 }
-            }
 
-            items(
-                items = faturas,
-                key = { "fatura_${uiState.abaSelecionada}_${it.cartao.id}_${it.mesAno}" }
-            ) { fatura ->
-                CardFaturaCompleta(
-                    fatura = fatura,
-                    expandida = fatura.cartao.id in uiState.cartoesExpandidos,
-                    visivel = uiState.valoresVisiveis,
-                    onExpandir = {
-                        viewModel.alternarCartao(fatura.cartao.id)
-                    },
-                    onPagar = {
-                        faturaParaPagar = fatura
-                        contaSelecionada = null
-                    }
-                )
-            }
+                item(key = "titulo_fixas") {
+                    TituloSecao(texto = "Despesas fixas")
+                }
 
-            item(key = "titulo_fixas") {
-                TituloSecao(texto = "Despesas fixas")
-            }
-
-            item(key = "card_fixas") {
-                CardDespesasFixas(
-                    despesas = uiState.despesasFixas,
-                    visivel = uiState.valoresVisiveis
-                )
+                item(key = "card_fixas") {
+                    CardDespesasFixas(
+                        despesas = uiState.despesasFixas,
+                        visivel = uiState.valoresVisiveis
+                    )
+                }
             }
         }
-    }
 
-    faturaParaPagar?.let { fatura ->
-        DialogoPagamento(
-            fatura = fatura,
-            contas = contasDisponiveis,
-            selecionada = contaSelecionada,
-            visivel = uiState.valoresVisiveis,
-            processando = processandoPagamento,
-            onSelecionarConta = { conta ->
-                contaSelecionada = conta
-            },
-            onCancelar = {
-                if (!processandoPagamento) {
-                    faturaParaPagar = null
-                    contaSelecionada = null
-                }
-            },
-            onConfirmar = {
-                val conta = contaSelecionada ?: return@DialogoPagamento
-
-                processandoPagamento = true
-
-                viewModel.pagarFatura(
-                    cartaoId = fatura.cartao.id,
-                    contaId = conta.id
-                ) { erro ->
-                    processandoPagamento = false
-
-                    if (erro == null) {
+        // Fica fora do Scaffold para o diálogo não receber blur.
+        faturaParaPagar?.let { fatura ->
+            DialogoPagamento(
+                fatura = fatura,
+                contas = contasDisponiveis,
+                selecionada = contaSelecionada,
+                visivel = true,
+                processando = processandoPagamento,
+                onSelecionarConta = { conta ->
+                    contaSelecionada = conta
+                },
+                onCancelar = {
+                    if (!processandoPagamento) {
                         faturaParaPagar = null
                         contaSelecionada = null
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(
-                                "Fatura paga com sucesso."
-                            )
-                        }
-                    } else {
-                        coroutineScope.launch {
-                            snackbarHostState.showSnackbar(erro)
+                    }
+                },
+                onConfirmar = {
+                    val conta = contaSelecionada ?: return@DialogoPagamento
+
+                    processandoPagamento = true
+
+                    viewModel.pagarFatura(
+                        cartaoId = fatura.cartao.id,
+                        contaId = conta.id
+                    ) { erro ->
+                        processandoPagamento = false
+
+                        if (erro == null) {
+                            faturaParaPagar = null
+                            contaSelecionada = null
+
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Fatura paga com sucesso."
+                                )
+                            }
+                        } else {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar(erro)
+                            }
                         }
                     }
                 }
-            }
-        )
-    }
-}
-
+            )
+        }
+    }}
 @Composable
 private fun TopBarTransacoes(
     onVoltar: () -> Unit,
@@ -1248,133 +1287,445 @@ private fun DialogoPagamento(
     onCancelar: () -> Unit,
     onConfirmar: () -> Unit
 ) {
-    androidx.compose.ui.window.Dialog(onDismissRequest = onCancelar) {
-        Card(
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+    if (!visivel) return
+
+    val context = LocalContext.current
+
+    val vencimentoData = remember(
+        fatura.mesAno,
+        fatura.cartao.diaVencimento
+    ) {
+        val dia = fatura.cartao.diaVencimento.coerceAtMost(
+            fatura.mesAno.lengthOfMonth()
+        )
+
+        fatura.mesAno.atDay(dia)
+    }
+
+    val formatterData = remember {
+        DateTimeFormatter.ofPattern(
+            "dd 'de' MMM",
+            Locale("pt", "BR")
+        )
+    }
+
+    Dialog(
+        onDismissRequest = onCancelar,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            Column(Modifier.padding(16.dp)) {
-                Text("Pagar fatura", fontWeight = FontWeight.Bold, color = CorTexto)
-                Spacer(Modifier.height(12.dp))
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight(),
+                shape = RoundedCornerShape(
+                    topStart = 26.dp,
+                    topEnd = 26.dp,
+                    bottomStart = 0.dp,
+                    bottomEnd = 0.dp
+                ),
+                color = Color.White
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(
+                            start = 24.dp,
+                            end = 24.dp,
+                            top = 10.dp,
+                            bottom = 20.dp
+                        )
+                ) {
 
-                // resumo da fatura em topo
-                Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F9F7))) {
-                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        // ícone cartão
-                        val context = LocalContext.current
-                        val logoRes = remember(fatura.cartao.marcaChave) {
-                            context.resources.getIdentifier(fatura.cartao.marcaChave, "drawable", context.packageName)
-                        }
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFF0F4EF)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            if (logoRes != 0) {
-                                Icon(painter = painterResource(id = logoRes), contentDescription = fatura.cartao.nome, tint = Color.Unspecified, modifier = Modifier.size(24.dp))
-                            } else {
-                                Text(text = fatura.cartao.nome.take(2).uppercase(), color = fatura.cartao.corHex.toColor(), fontWeight = FontWeight.Bold)
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = fatura.cartao.nome, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = "Fatura - vence ${fatura.mesAno.format(DateTimeFormatter.ofPattern("dd 'de' MMM", Locale("pt", "BR")))}",
-                                color = CorTexto.copy(alpha = 0.6f),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                        }
-                        Text(text = fatura.totalCentavos.formatarMoeda(true), fontWeight = FontWeight.Bold, color = CorTexto)
-                    }
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                Text("Debitar de", color = CorTexto.copy(alpha = 0.8f), fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.height(8.dp))
-
-                contas.forEach { conta ->
-                    val isSelected = conta.id == selecionada?.id
-                    Card(
+                    // Pequeno handle no topo do bottom sheet
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 6.dp)
-                            .clickable { onSelecionarConta(conta) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = if (isSelected) Color(0xFFEFF7EF) else Color.White),
-                        border = if (isSelected) BorderStroke(1.dp, CorPrincipal) else null
+                            .height(20.dp),
+                        contentAlignment = Alignment.TopCenter
                     ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            val context = LocalContext.current
-                            val nomeArquivo = if (conta.instituicaoChave.contains("caixa", ignoreCase = true) || conta.instituicaoChave.equals("cx", ignoreCase = true)) "cef" else conta.instituicaoChave
-                            val logoRes = remember(nomeArquivo) { context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName) }
+                        Box(
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .size(width = 38.dp, height = 4.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFE1E5E8))
+                        )
+                    }
 
-                            Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFF0F4EF)), contentAlignment = Alignment.Center) {
-                                if (logoRes != 0) {
-                                    Icon(painter = painterResource(id = logoRes), contentDescription = conta.nome, tint = Color.Unspecified, modifier = Modifier.size(22.dp))
+// Título e botão fechar centralizados na mesma linha
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Pagar fatura",
+                            color = CorTexto,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        IconButton(
+                            onClick = onCancelar,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFF4F6F8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Fechar",
+                                    tint = Color(0xFF7C8795),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+
+// Linha divisória abaixo do cabeçalho
+                    HorizontalDivider(
+                        modifier = Modifier.fillMaxWidth(),
+                        thickness = 1.dp,
+                        color = Color(0xFFE9ECEF)
+                    )
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    Text(
+                        text = "Pagar fatura",
+                        color = CorTexto,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(18.dp))
+
+                    // Card de resumo da fatura:
+                    // Ele termina aqui e NÃO deve envolver a lista de contas.
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFF7F8FA)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val logoFaturaRes = remember(fatura.cartao.marcaChave) {
+                                context.resources.getIdentifier(
+                                    fatura.cartao.marcaChave,
+                                    "drawable",
+                                    context.packageName
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFFF0EEF8)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (logoFaturaRes != 0) {
+                                    Icon(
+                                        painter = painterResource(logoFaturaRes),
+                                        contentDescription = fatura.cartao.nome,
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(28.dp)
+                                    )
                                 } else {
-                                    Text(text = conta.nome.take(2).uppercase(), color = conta.corHex.toColor(), fontWeight = FontWeight.Bold)
+                                    Text(
+                                        text = fatura.cartao.nome
+                                            .take(2)
+                                            .uppercase(),
+                                        color = fatura.cartao.corHex.toColor(),
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
                             }
 
-                            Spacer(Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(12.dp))
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(text = conta.nome, color = CorTexto)
-                                Text(text = conta.saldoCentavos.formatarMoeda(true), color = CorTexto.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
-                            }
-
-                            // indicador rádio simples
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(CircleShape)
-                                    .background(if (isSelected) CorPrincipal else Color(0xFFF0F0F0)),
-                                contentAlignment = Alignment.Center
+                            Column(
+                                modifier = Modifier.weight(1f)
                             ) {
-                                if (isSelected) Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                Text(
+                                    text = fatura.cartao.nome,
+                                    color = CorTexto,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Spacer(modifier = Modifier.height(2.dp))
+
+                                Text(
+                                    text = "Fatura - vence ${
+                                        vencimentoData.format(formatterData)
+                                    }",
+                                    color = CorTexto.copy(alpha = 0.55f),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Text(
+                                text = fatura.totalCentavos.formatarMoeda(true),
+                                color = CorTexto,
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "DEBITAR DE",
+                        color = CorTexto.copy(alpha = 0.58f),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Lista de contas fora do Card de resumo
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        contas.forEach { conta ->
+                            val isSelected = conta.id == selecionada?.id
+
+                            val nomeArquivo = remember(conta.instituicaoChave) {
+                                when {
+                                    conta.instituicaoChave.contains(
+                                        "caixa",
+                                        ignoreCase = true
+                                    ) -> "cef"
+
+                                    conta.instituicaoChave.equals(
+                                        "cx",
+                                        ignoreCase = true
+                                    ) -> "cef"
+
+                                    else -> conta.instituicaoChave
+                                }
+                            }
+
+                            val logoContaRes = remember(nomeArquivo) {
+                                context.resources.getIdentifier(
+                                    nomeArquivo,
+                                    "drawable",
+                                    context.packageName
+                                )
+                            }
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        if (!processando) {
+                                            onSelecionarConta(conta)
+                                        }
+                                    },
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isSelected) {
+                                        Color(0xFFF5FAF7)
+                                    } else {
+                                        Color.White
+                                    }
+                                ),
+                                border = BorderStroke(
+                                    width = if (isSelected) 1.dp else 1.dp,
+                                    color = if (isSelected) {
+                                        CorPrincipal
+                                    } else {
+                                        Color(0xFFE4E7EA)
+                                    }
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(40.dp)
+                                            .clip(RoundedCornerShape(12.dp))
+                                            .background(Color(0xFFF1F3F3)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (logoContaRes != 0) {
+                                            Icon(
+                                                painter = painterResource(logoContaRes),
+                                                contentDescription = conta.nome,
+                                                tint = Color.Unspecified,
+                                                modifier = Modifier.size(25.dp)
+                                            )
+                                        } else {
+                                            Text(
+                                                text = conta.nome
+                                                    .take(2)
+                                                    .uppercase(),
+                                                color = conta.corHex.toColor(),
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column(
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Text(
+                                            text = conta.nome,
+                                            color = if (isSelected) {
+                                                CorPrincipal
+                                            } else {
+                                                CorTexto
+                                            },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+
+                                        Spacer(modifier = Modifier.height(1.dp))
+
+                                        Text(
+                                            text = "${conta.saldoCentavos.formatarMoeda(true)} disponível",
+                                            color = CorTexto.copy(alpha = 0.52f),
+                                            style = MaterialTheme.typography.bodySmall
+                                        )
+                                    }
+
+                                    // Radio igual ao visual da imagem 1:
+                                    // círculo verde externo e ponto branco interno.
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .then(
+                                                if (isSelected) {
+                                                    Modifier.background(CorPrincipal)
+                                                } else {
+                                                    Modifier.border(
+                                                        width = 1.5.dp,
+                                                        color = Color(0xFFD5DBE0),
+                                                        shape = CircleShape
+                                                    )
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isSelected) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(8.dp)
+                                                    .clip(CircleShape)
+                                                    .background(Color.White)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
-                }
 
-                Spacer(Modifier.height(12.dp))
+                    if (selecionada != null) {
+                        val novoSaldo =
+                            selecionada.saldoCentavos - fatura.totalCentavos
 
-                // saldo após pagamento (se tiver conta selecionada)
-                if (selecionada != null) {
-                    val novoSaldo = selecionada.saldoCentavos - fatura.totalCentavos
-                    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F6F1)), modifier = Modifier.fillMaxWidth()) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text("Saldo após pagamento", color = CorTexto.copy(alpha = 0.7f))
-                            Spacer(Modifier.weight(1f))
-                            Text(text = novoSaldo.formatarMoeda(true), fontWeight = FontWeight.Bold, color = CorPrincipal)
+                        Spacer(modifier = Modifier.height(18.dp))
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFF3F7F5)
+                            ),
+                            border = BorderStroke(
+                                width = 1.dp,
+                                color = Color(0xFFD2DDD6)
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(
+                                        horizontal = 16.dp,
+                                        vertical = 15.dp
+                                    ),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Saldo após pagamento",
+                                    color = CorTexto.copy(alpha = 0.65f),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                Text(
+                                    text = novoSaldo.formatarMoeda(true),
+                                    color = CorPrincipal,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(18.dp))
 
-                // confirmar botão verde full width
-                androidx.compose.material3.Button(
-                    onClick = onConfirmar,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = CorPrincipal)
-                ) {
-                    Text(text = if (processando) "Pagando..." else "Confirmar pagamento de ${fatura.totalCentavos.formatarMoeda(true)}", color = Color.White)
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // cancelar
-                TextButton(onClick = onCancelar) {
-                    Text("Cancelar", color = CorTexto)
+                    Button(
+                        onClick = onConfirmar,
+                        enabled = selecionada != null && !processando,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(54.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF225E43),
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFB8CECA),
+                            disabledContentColor = Color.White.copy(alpha = 0.85f)
+                        )
+                    ) {
+                        Text(
+                            text = if (processando) {
+                                "Pagando..."
+                            } else {
+                                "Confirmar pagamento de ${
+                                    fatura.totalCentavos.formatarMoeda(true)
+                                }"
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1
+                        )
+                    }
                 }
             }
         }
