@@ -2,6 +2,7 @@
 
 package com.example.controlegastos.ui.transacoes
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -59,9 +60,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -76,6 +79,15 @@ import java.time.YearMonth
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.window.Dialog
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.foundation.Canvas
+
+
+
 
 private val CorFundoApp = Color(0xFFF3F7F2)
 private val CorPrincipal = Color(0xFF5F8D84)
@@ -166,15 +178,74 @@ fun TransacoesScreen(
                     visivel = uiState.valoresVisiveis
                 )
             }
+            // calcular total e adicionar item de sumário
+            val totalContas = uiState.contas.sumOf { it.saldoCentavos }
+
+            item(key = "total_em_contas") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFE9EFEA), // Cor de fundo verde bem clarinho
+                    border = BorderStroke(1.dp, Color(0xFFD4E0D8)) // Borda sutil um pouco mais escura
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 14.dp), // Espaçamento interno
+                        horizontalArrangement = Arrangement.SpaceBetween, // Joga um item pra cada lado
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Total em contas",
+                            color = Color(0xFF0F5A4A), // Verde escuro da imagem
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 15.sp // Ajuste fino do tamanho da fonte
+                            ),
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        // Variável dinâmica colocada no lugar correto
+                        Text(
+                            text = totalContas.formatarMoeda(true),
+                            color = Color(0xFF0F5A4A),
+                            style = MaterialTheme.typography.bodyLarge.copy(
+                                fontSize = 15.sp
+                            ),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             item(key = "titulo_cartoes") {
-                TituloSecao(texto = "Cartão de crédito")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TituloSecao(texto = "Cartão de crédito")
+                    Spacer(Modifier.weight(1f))
+                    // Badge no canto direito com total de faturas abertas
+                    val abertosCount = uiState.faturasAbertas.size
+                    val totalAbertos = uiState.faturasAbertas.sumOf { it.totalCentavos }
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color(0xFFFFF4F2), // fundo levemente avermelhado
+                        border = BorderStroke(1.dp, Color(0xFFFFD6CF)),
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "$abertosCount fatura(s) em aberto", color = Color(0xFFB33A27), fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
             }
 
             item(key = "abas_faturas") {
                 AbasFaturas(
                     selecionada = uiState.abaSelecionada,
-                    onSelecionar = viewModel::selecionarAbaFaturas
+                    onSelecionar = viewModel::selecionarAbaFaturas,
+                    abertosCount = uiState.faturasAbertas.size,
+                    fechadosCount = uiState.faturasFechadas.size
                 )
             }
 
@@ -282,41 +353,77 @@ private fun TopBarTransacoes(
     onToggleValores: () -> Unit,
     valoresVisiveis: Boolean
 ) {
-    Surface(
-        color = CorCardSaldoDark,
-        shape = RoundedCornerShape(bottomStart = 20.dp, bottomEnd = 20.dp),
-        modifier = Modifier.fillMaxWidth()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFEEF2EF)) // Cor de fundo no mesmo padrão
+            .statusBarsPadding()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
-            modifier = Modifier
-                .statusBarsPadding()
-                .height(80.dp)
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+            modifier = Modifier.fillMaxWidth()
         ) {
-            IconButton(onClick = onVoltar) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Voltar",
-                    tint = Color.White
+            // Botão de Voltar
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White,
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable { onVoltar() }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Voltar",
+                        tint = Color(0xFF2F6F62),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Título e Subtítulo
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Transações",
+                    color = Color(0xFF123C3A),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Acompanhe suas movimentações", // Subtítulo para manter a estrutura visual do design
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
-            Text(
-                text = "Transações",
-                color = Color.White,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            Spacer(modifier = Modifier.width(12.dp))
 
-            IconButton(onClick = onToggleValores) {
-                Icon(
-                    imageVector = if (valoresVisiveis) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                    contentDescription = "Ocultar ou mostrar valores",
-                    tint = Color.White
-                )
+            // Botão de Visibilidade (Olho) na direita
+            androidx.compose.material3.Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color.White,
+                tonalElevation = 0.dp,
+                border = BorderStroke(1.dp, Color(0xFFE6EFEA)),
+                modifier = Modifier
+                    .size(40.dp)
+                    .clickable { onToggleValores() }
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (valoresVisiveis) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription = "Ocultar ou mostrar valores",
+                        tint = Color(0xFF2F6F62),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
         }
     }
@@ -516,13 +623,15 @@ private fun CardSaldoPrincipal(
     }
 }
 
+// Substituir a função existente TituloSecao por esta
 @Composable
 private fun TituloSecao(texto: String) {
     Text(
-        text = texto,
-        color = CorTexto,
-        style = MaterialTheme.typography.headlineSmall,
-        fontWeight = FontWeight.Bold
+        text = texto.uppercase(), // imagem mostra texto em caixa alta pequena
+        color = Color(0xFF8A9A9A), // tom de cinza
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.2.sp
     )
 }
 
@@ -531,51 +640,85 @@ private fun CardConta(
     conta: ContaSaldo,
     visivel: Boolean
 ) {
+    // obter contexto para buscar drawable pelo nome
+    val context = LocalContext.current
+
+    val logoRes = remember(conta.instituicaoChave) {
+        val nomeArquivo = if (
+            conta.instituicaoChave.contains("caixa", ignoreCase = true) ||
+            conta.instituicaoChave.equals("cx", ignoreCase = true)
+        ) {
+            "cef"
+        } else {
+            conta.instituicaoChave
+        }
+
+        context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
+    }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = CorCard)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = RoundedCornerShape(10.dp),
-                color = CorFundoSaldo
+            // Badge circular com ícone ou iniciais
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFF0F4EF)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
+                if (logoRes != 0) {
                     Icon(
-                        imageVector = Icons.Default.AccountBalance,
-                        contentDescription = null,
-                        tint = CorPrincipal,
-                        modifier = Modifier.size(22.dp)
+                        painter = painterResource(id = logoRes),
+                        contentDescription = conta.nome,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text(
+                        text = conta.nome.take(2).uppercase(),
+                        color = conta.corHex.toColor(),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
 
             Spacer(Modifier.width(12.dp))
 
-            Column(Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = conta.nome,
-                    color = CorTexto,
-                    fontWeight = FontWeight.Bold
+                    color = Color(0xFF123C3A),
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyLarge
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = conta.tipo.name.replace("_", " "),
-                    color = CorTexto.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall
+                    text = when (conta.tipo) {
+                        TipoContaSaldo.CONTA -> "Conta bancária"
+                        TipoContaSaldo.CARTEIRA -> "Carteira"
+                        TipoContaSaldo.SALDO_RESERVADO -> "Saldo reservado"
+                    },
+                    color = Color(0xFF7D8B88),
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
 
             Text(
                 text = conta.saldoCentavos.formatarMoeda(visivel),
-                color = CorTexto,
-                fontWeight = FontWeight.Bold
+                color = Color(0xFF123C3A),
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyLarge
             )
         }
     }
@@ -584,46 +727,90 @@ private fun CardConta(
 @Composable
 private fun AbasFaturas(
     selecionada: AbaFaturas,
-    onSelecionar: (AbaFaturas) -> Unit
+    onSelecionar: (AbaFaturas) -> Unit,
+    abertosCount: Int,
+    fechadosCount: Int
 ) {
-    Row(
+    // Card externo que engloba as duas abas
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        shape = RoundedCornerShape(30),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        shadowElevation = 1.dp
     ) {
-        val pillModifier = Modifier
-            .weight(1f)
-            .height(40.dp)
-
-        Surface(
-            modifier = pillModifier.clickable { onSelecionar(AbaFaturas.ABERTAS) },
-            shape = RoundedCornerShape(50),
-            color = if (selecionada == AbaFaturas.ABERTAS) CorPrincipal else CorCard
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp), // Espaçamento interno para a aba verde não encostar na borda
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Faturas abertas",
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    color = if (selecionada == AbaFaturas.ABERTAS) Color.White else CorTexto,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
+            @Composable
+            fun AbaItem(
+                titulo: String,
+                quantidade: Int,
+                isSelecionada: Boolean,
+                onClick: () -> Unit
+            ) {
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clip(RoundedCornerShape(30))
+                        .clickable { onClick() },
+                    color = if (isSelecionada) Color(0xFF225F44) else Color.Transparent, // Verde escuro se selecionada
+                ) {
+                    Row(
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = titulo,
+                            color = if (isSelecionada) Color.White else Color(0xFF7D8B99),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
 
-        Surface(
-            modifier = pillModifier.clickable { onSelecionar(AbaFaturas.FECHADAS) },
-            shape = RoundedCornerShape(50),
-            color = if (selecionada == AbaFaturas.FECHADAS) CorPrincipal else CorCard
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = "Faturas fechadas",
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                    color = if (selecionada == AbaFaturas.FECHADAS) Color.White else CorTexto,
-                    fontWeight = FontWeight.SemiBold
-                )
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        // Badge com a quantidade
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .background(
+                                    color = if (isSelecionada) Color.White.copy(alpha = 0.2f) else Color(0xFFF3F4F6),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = quantidade.toString(),
+                                color = if (isSelecionada) Color.White else Color(0xFF7D8B99),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
+
+            // Aba Faturas Abertas
+            AbaItem(
+                titulo = "Faturas Abertas",
+                quantidade = abertosCount,
+                isSelecionada = selecionada == AbaFaturas.ABERTAS,
+                onClick = { onSelecionar(AbaFaturas.ABERTAS) }
+            )
+
+            // Aba Faturas Fechadas
+            AbaItem(
+                titulo = "Faturas Fechadas",
+                quantidade = fechadosCount,
+                isSelecionada = selecionada == AbaFaturas.FECHADAS,
+                onClick = { onSelecionar(AbaFaturas.FECHADAS) }
+            )
         }
     }
 }
@@ -635,38 +822,59 @@ private fun CardTotalFaturas(
     visivel: Boolean,
     aba: AbaFaturas
 ) {
-    Card(
+    val isAberto = aba == AbaFaturas.ABERTAS
+
+    // Cores baseadas na aba selecionada (quente/laranja para abertas, verde/frio para fechadas)
+    val bgColor = if (isAberto) Color(0xFFFFF9E5) else Color(0xFFE9EFEA)
+    val borderColor = if (isAberto) Color(0xFFFFE0B2) else Color(0xFFD4E0D8)
+    val textColorMain = if (isAberto) Color(0xFFC25501) else Color(0xFF0F5A4A)
+    val textColorSub = if (isAberto) Color(0xFFE58735) else Color(0xFF4A7D71)
+
+    val titulo = if (isAberto) "Total em aberto" else "Total fechado"
+
+    val subtitulo = if (isAberto) {
+        if (quantidade == 1) "1 cartão pendente" else "$quantidade cartões pendentes"
+    } else {
+        if (quantidade == 1) "1 cartão" else "$quantidade cartões"
+    }
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = CorFundoSaldo),
-        shape = RoundedCornerShape(14.dp)
+        shape = RoundedCornerShape(16.dp),
+        color = bgColor,
+        border = BorderStroke(1.dp, borderColor)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
-                    text = if (aba == AbaFaturas.ABERTAS) "Total em aberto" else "Total fechado",
-                    color = CorTexto,
-                    fontWeight = FontWeight.SemiBold
+                    text = titulo,
+                    color = textColorMain,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontSize = 15.sp),
+                    fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "$quantidade cartão(ões)",
-                    color = CorTexto.copy(alpha = 0.7f),
+                    text = subtitulo,
+                    color = textColorSub,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
             Text(
                 text = total.formatarMoeda(visivel),
-                color = CorTexto,
+                color = textColorMain,
+                style = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
                 fontWeight = FontWeight.Bold
             )
         }
     }
 }
+
 
 @Composable
 private fun CardFaturaCompleta(
@@ -676,95 +884,229 @@ private fun CardFaturaCompleta(
     onExpandir: () -> Unit,
     onPagar: () -> Unit
 ) {
+    val cartao = fatura.cartao
+    val limite = cartao.limiteCentavos
+    val usado = fatura.totalCentavos.coerceAtMost(limite)
+    val percentual = if (limite > 0L) (usado * 100 / limite).toFloat() / 100f else 0f
+    val disponivel = (limite - usado).coerceAtLeast(0L)
+
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(15.dp),
-        colors = CardDefaults.cardColors(containerColor = CorCard)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFE5E7EB)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column {
+            Column(Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val context = LocalContext.current
+                    val logoRes = remember(cartao.marcaChave) {
+                        val nomeArquivo = cartao.marcaChave
+                        context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName)
+                    }
+
+                    // Ícone menor e proporcional para não cortar
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(if (logoRes == 0) cartao.corHex.toColor() else Color(0xFFF0F4EF)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (logoRes != 0) {
+                            Icon(
+                                painter = painterResource(id = logoRes),
+                                contentDescription = cartao.nome,
+                                tint = Color.Unspecified,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        } else {
+                            Text(
+                                text = cartao.nome.take(2).uppercase(),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = cartao.nome,
+                                color = Color(0xFF111827),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp
+                            )
+                            Spacer(Modifier.width(8.dp))
+
+                            // Badge "Pendente" / "Pago" mais achatado
+                            if (!fatura.paga) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFFFFBEB),
+                                    border = BorderStroke(1.dp, Color(0xFFFDE68A))
+                                ) {
+                                    Text(
+                                        text = "Pendente",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                        color = Color(0xFFD97706),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            } else {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color(0xFFF0FDF4),
+                                    border = BorderStroke(1.dp, Color(0xFFBBF7D0))
+                                ) {
+                                    Text(
+                                        text = "Pago",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                                        color = Color(0xFF16A34A),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Vence ${cartao.diaVencimento} de ${fatura.mesAno.format(DateTimeFormatter.ofPattern("MMM", Locale("pt","BR"))).lowercase()}.",
+                            color = Color(0xFF9CA3AF),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text(
+                            text = fatura.totalCentavos.formatarMoeda(visivel),
+                            color = Color(0xFF111827),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            text = "de ${limite.formatarMoeda(true)}",
+                            color = Color(0xFF9CA3AF),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    val percentualInt = (percentual * 100).toInt()
+                    Text(
+                        text = "$percentualInt% do limite utilizado",
+                        color = Color(0xFF9CA3AF),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                    Text(
+                        text = "${disponivel.formatarMoeda(true)} disponível",
+                        color = Color(0xFF9CA3AF),
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // Barra de progresso limpa feita por Canvas (sem bolinhas nas pontas)
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                ) {
+                    // Fundo da barra
+                    drawRect(color = Color(0xFFF3F4F6))
+                    // Preenchimento proporcional sem pontos extras
+                    drawRect(
+                        color = Color(0xFF225F44),
+                        size = androidx.compose.ui.geometry.Size(
+                            width = size.width * percentual.coerceIn(0f, 1f),
+                            height = size.height
+                        )
+                    )
+                }
+            }
+
+            HorizontalDivider(color = Color(0xFFF3F4F6), thickness = 1.dp)
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(onClick = onExpandir),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Icon(
-                    imageVector = Icons.Default.CreditCard,
-                    contentDescription = null,
-                    tint = CorPrincipal,
-                    modifier = Modifier.size(28.dp)
-                )
-
-                Spacer(Modifier.width(12.dp))
-
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = fatura.cartao.nome,
-                        color = CorTexto,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Vencimento dia ${fatura.cartao.diaVencimento}",
-                        color = CorTexto.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                }
-
                 Text(
-                    text = fatura.totalCentavos.formatarMoeda(visivel),
-                    color = CorTexto,
-                    fontWeight = FontWeight.Bold
+                    text = diasParaVencerTexto(fatura),
+                    color = Color(0xFF9CA3AF),
+                    style = MaterialTheme.typography.bodyMedium
                 )
 
-                Icon(
-                    imageVector = if (expandida) {
-                        Icons.Default.KeyboardArrowUp
-                    } else {
-                        Icons.Default.KeyboardArrowDown
-                    },
-                    contentDescription = "Expandir despesas",
-                    tint = CorTexto
-                )
-            }
-
-            if (expandida) {
-                Spacer(Modifier.size(10.dp))
-                HorizontalDivider(color = CorPrincipal.copy(alpha = 0.18f))
-
-                fatura.despesas.forEach { despesa ->
-                    ItemDespesaCartao(
-                        despesa = despesa,
-                        visivel = visivel
-                    )
-                }
-
-                if (!fatura.paga) {
-                    TextButton(
-                        onClick = onPagar,
-                        modifier = Modifier.fillMaxWidth()
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = onExpandir,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        border = BorderStroke(1.dp, Color(0xFFE5E7EB))
                     ) {
-                        Text("Pagar fatura", color = CorPrincipal)
+                        Text("Ver fatura", color = Color(0xFF1F2937), fontWeight = FontWeight.SemiBold)
                     }
-                } else {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 10.dp),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
+
+                    androidx.compose.material3.Button(
+                        onClick = onPagar,
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Color(0xFF225F44))
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CheckCircle,
+                            imageVector = Icons.Outlined.CheckCircle,
                             contentDescription = null,
-                            tint = CorPrincipal,
+                            tint = Color.White,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text("Fatura paga", color = CorPrincipal, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Pagar fatura", color = Color.White, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
         }
+    }
+}
+
+// helper para calcular texto dias para vencer (simples)
+private fun diasParaVencerTexto(fatura: FaturaCartao): String {
+    val hoje = java.time.LocalDate.now()
+
+    val vencimento = fatura.mesAno.atDay(
+        fatura.cartao.diaVencimento.coerceAtMost(
+            fatura.mesAno.lengthOfMonth()
+        )
+    )
+
+    val dias = java.time.temporal.ChronoUnit.DAYS.between(
+        hoje,
+        vencimento
+    )
+
+    return when {
+        dias < 0 -> "Vencida"
+        dias == 0L -> "Vence Hoje"
+        dias == 1L -> "Falta 1 dia para vencer"
+        else -> "Faltam $dias dias para vencer"
     }
 }
 
@@ -906,100 +1248,137 @@ private fun DialogoPagamento(
     onCancelar: () -> Unit,
     onConfirmar: () -> Unit
 ) {
-    val saldoSuficiente = selecionada?.saldoCentavos
-        ?.let { it >= fatura.totalCentavos }
-        ?: false
+    androidx.compose.ui.window.Dialog(onDismissRequest = onCancelar) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            Column(Modifier.padding(16.dp)) {
+                Text("Pagar fatura", fontWeight = FontWeight.Bold, color = CorTexto)
+                Spacer(Modifier.height(12.dp))
 
-    AlertDialog(
-        containerColor = CorFundoApp,
-        onDismissRequest = onCancelar,
-        title = {
-            Text("Pagar fatura", color = CorTexto, fontWeight = FontWeight.Bold)
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = fatura.cartao.nome,
-                    color = CorTexto,
-                    fontWeight = FontWeight.SemiBold
-                )
-                Text(
-                    text = "Total: ${fatura.totalCentavos.formatarMoeda(visivel)}",
-                    color = CorTexto
-                )
-                HorizontalDivider()
-                Text(
-                    text = "Selecione a conta de pagamento:",
-                    color = CorTexto
-                )
-
-                if (contas.isEmpty()) {
-                    Text(
-                        text = "Nenhuma conta disponível.",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                contas.forEach { conta ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelecionarConta(conta) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (conta.id == selecionada?.id) {
-                                Icons.Default.RadioButtonChecked
+                // resumo da fatura em topo
+                Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F9F7))) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // ícone cartão
+                        val context = LocalContext.current
+                        val logoRes = remember(fatura.cartao.marcaChave) {
+                            context.resources.getIdentifier(fatura.cartao.marcaChave, "drawable", context.packageName)
+                        }
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF0F4EF)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (logoRes != 0) {
+                                Icon(painter = painterResource(id = logoRes), contentDescription = fatura.cartao.nome, tint = Color.Unspecified, modifier = Modifier.size(24.dp))
                             } else {
-                                Icons.Default.RadioButtonUnchecked
-                            },
-                            contentDescription = null,
-                            tint = CorPrincipal
-                        )
-
-                        Spacer(Modifier.width(8.dp))
-
-                        Text(
-                            text = conta.nome,
-                            modifier = Modifier.weight(1f),
-                            color = CorTexto
-                        )
-
-                        Text(
-                            text = conta.saldoCentavos.formatarMoeda(visivel),
-                            color = CorTexto,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                                Text(text = fatura.cartao.nome.take(2).uppercase(), color = fatura.cartao.corHex.toColor(), fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = fatura.cartao.nome, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                text = "Fatura - vence ${fatura.mesAno.format(DateTimeFormatter.ofPattern("dd 'de' MMM", Locale("pt", "BR")))}",
+                                color = CorTexto.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Text(text = fatura.totalCentavos.formatarMoeda(true), fontWeight = FontWeight.Bold, color = CorTexto)
                     }
                 }
 
-                if (selecionada != null && !saldoSuficiente) {
-                    Text(
-                        text = "Saldo insuficiente para pagar esta fatura.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Spacer(Modifier.height(12.dp))
+
+                Text("Debitar de", color = CorTexto.copy(alpha = 0.8f), fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+
+                contas.forEach { conta ->
+                    val isSelected = conta.id == selecionada?.id
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .clickable { onSelecionarConta(conta) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = if (isSelected) Color(0xFFEFF7EF) else Color.White),
+                        border = if (isSelected) BorderStroke(1.dp, CorPrincipal) else null
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val context = LocalContext.current
+                            val nomeArquivo = if (conta.instituicaoChave.contains("caixa", ignoreCase = true) || conta.instituicaoChave.equals("cx", ignoreCase = true)) "cef" else conta.instituicaoChave
+                            val logoRes = remember(nomeArquivo) { context.resources.getIdentifier(nomeArquivo, "drawable", context.packageName) }
+
+                            Box(modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFF0F4EF)), contentAlignment = Alignment.Center) {
+                                if (logoRes != 0) {
+                                    Icon(painter = painterResource(id = logoRes), contentDescription = conta.nome, tint = Color.Unspecified, modifier = Modifier.size(22.dp))
+                                } else {
+                                    Text(text = conta.nome.take(2).uppercase(), color = conta.corHex.toColor(), fontWeight = FontWeight.Bold)
+                                }
+                            }
+
+                            Spacer(Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(text = conta.nome, color = CorTexto)
+                                Text(text = conta.saldoCentavos.formatarMoeda(true), color = CorTexto.copy(alpha = 0.6f), style = MaterialTheme.typography.bodySmall)
+                            }
+
+                            // indicador rádio simples
+                            Box(
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) CorPrincipal else Color(0xFFF0F0F0)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) Icon(imageVector = Icons.Default.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                // saldo após pagamento (se tiver conta selecionada)
+                if (selecionada != null) {
+                    val novoSaldo = selecionada.saldoCentavos - fatura.totalCentavos
+                    Card(shape = RoundedCornerShape(12.dp), colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F6F1)), modifier = Modifier.fillMaxWidth()) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("Saldo após pagamento", color = CorTexto.copy(alpha = 0.7f))
+                            Spacer(Modifier.weight(1f))
+                            Text(text = novoSaldo.formatarMoeda(true), fontWeight = FontWeight.Bold, color = CorPrincipal)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // confirmar botão verde full width
+                androidx.compose.material3.Button(
+                    onClick = onConfirmar,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = CorPrincipal)
+                ) {
+                    Text(text = if (processando) "Pagando..." else "Confirmar pagamento de ${fatura.totalCentavos.formatarMoeda(true)}", color = Color.White)
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                // cancelar
+                TextButton(onClick = onCancelar) {
+                    Text("Cancelar", color = CorTexto)
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = onConfirmar,
-                enabled = !processando && saldoSuficiente
-            ) {
-                Text(if (processando) "Pagando..." else "Confirmar", color = CorPrincipal)
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onCancelar,
-                enabled = !processando
-            ) {
-                Text("Cancelar", color = CorPrincipal)
-            }
         }
-    )
+    }
 }
 
 private fun Long.formatarMoeda(visivel: Boolean): String {
@@ -1016,6 +1395,13 @@ private fun Long.formatarDia(): String {
         .atZone(ZoneOffset.UTC)
         .toLocalDate()
         .format(DateTimeFormatter.ofPattern("dd/MM"))
+}
+
+
+private fun String.toColor(): Color = try {
+    Color(android.graphics.Color.parseColor(this))
+} catch (_: IllegalArgumentException) {
+    Color(0xFF5F8D84) // fallback
 }
 
 private fun YearMonth.formatarMes(): String {
